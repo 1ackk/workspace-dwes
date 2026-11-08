@@ -1,7 +1,13 @@
 <?php
 
+use App\Enums\RoleName;
 use App\Models\User;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Support\Facades\Hash;
+
+beforeEach(function () {
+    $this->seed(RoleSeeder::class);
+});
 
 function validRegistration(array $overrides = []): array
 {
@@ -29,6 +35,14 @@ test('registers a user and logs them in', function () {
     $this->assertAuthenticatedAs($user);
     expect($user->name)->toBe('Ana López')
         ->and(Hash::check('secreto-de-prueba', $user->password))->toBeTrue();
+});
+
+test('gives the default role to a registered user', function () {
+    $this->post(route('register'), validRegistration());
+
+    $user = User::where('email', 'ana@workspace.test')->firstOrFail();
+
+    expect($user->getRoleNames()->all())->toBe([RoleName::Member->value]);
 });
 
 test('regenerates the session when registering', function () {

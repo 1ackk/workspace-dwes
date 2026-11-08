@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\InvoiceStatus;
+use App\Enums\RoleName;
 use App\Models\Booking;
 use App\Models\Incident;
 use App\Models\Invoice;
@@ -16,26 +17,28 @@ use Illuminate\Database\Seeder;
 /**
  * Datos de demostración del coworking. Los usuarios con rol se identifican por
  * su email (admin@, contable@, recepcion@, responsable1@/2@, usuario1@..5@
- * workspace.test, contraseña "password"); los roles se asignan en el sprint 3
- * con laravel-permission.
+ * workspace.test, contraseña "password"). Necesita los roles de RoleSeeder.
  */
 class CoworkingSeeder extends Seeder
 {
     public function run(): void
     {
-        User::factory()->create(['name' => 'Administrador', 'email' => 'admin@workspace.test']);
-        User::factory()->create(['name' => 'Contable', 'email' => 'contable@workspace.test']);
-        User::factory()->create(['name' => 'Recepción', 'email' => 'recepcion@workspace.test']);
+        User::factory()->create(['name' => 'Administrador', 'email' => 'admin@workspace.test'])
+            ->assignRole(RoleName::Admin);
+        User::factory()->create(['name' => 'Contable', 'email' => 'contable@workspace.test'])
+            ->assignRole(RoleName::Accountant);
+        User::factory()->create(['name' => 'Recepción', 'email' => 'recepcion@workspace.test'])
+            ->assignRole(RoleName::Reception);
 
         $managers = collect([1, 2])->map(fn (int $n) => User::factory()->create([
             'name' => "Responsable {$n}",
             'email' => "responsable{$n}@workspace.test",
-        ]));
+        ])->assignRole(RoleName::SpaceManager));
 
         $members = collect(range(1, 5))->map(fn (int $n) => User::factory()->create([
             'name' => "Miembro {$n}",
             'email' => "usuario{$n}@workspace.test",
-        ]));
+        ])->assignRole(RoleName::Member));
 
         $spaces = collect([
             ['name' => 'Planta Baja', 'location' => 'Calle Mayor 1, planta baja'],

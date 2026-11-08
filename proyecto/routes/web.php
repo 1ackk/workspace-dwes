@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\RoleName;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use Illuminate\Support\Facades\Route;
@@ -21,4 +22,21 @@ Route::middleware('auth')->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
 
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
+
+    // Páginas provisionales por rol de gestión: otro rol recibe un 403
+    Route::view('admin', 'admin.index')
+        ->middleware('role:'.RoleName::Admin->value)
+        ->name('admin.index');
+
+    Route::view('accounting', 'accounting.index')
+        ->middleware('role:'.RoleName::Accountant->value)
+        ->name('accounting.index');
+
+    Route::view('reception', 'reception.index')
+        ->middleware('role:'.RoleName::Reception->value)
+        ->name('reception.index');
+
+    Route::view('manager', 'manager.index')
+        ->middleware('role:'.RoleName::SpaceManager->value)
+        ->name('manager.index');
 });
