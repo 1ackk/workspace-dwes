@@ -2,7 +2,8 @@
 
 Los roles y permisos se crean en `database/seeders/RoleSeeder.php` con laravel-permission. Los
 permisos dicen qué acción puede hacer un rol; qué registros concretos le corresponden lo
-decidirán las policies.
+deciden las policies. `BookingPolicy` y `ResourcePolicy` ya están implantadas; las de Space,
+Invoice e Incident llegarán en sprints posteriores.
 
 ## Roles
 
@@ -15,7 +16,7 @@ decidirán las policies.
 ## Matriz
 
 - `✓`: tiene el permiso.
-- `*`: la policy lo limitará a lo suyo (sus reservas, sus espacios, sus recursos…).
+- `*`: la policy lo limita a lo suyo (sus reservas, sus espacios, sus recursos…).
 - `†`: decisión del proyecto que CLAUDE.md no recoge expresamente.
 
 | Permiso | usuario | recepción | responsable de espacio | contable | administrador |

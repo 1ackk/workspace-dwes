@@ -2,7 +2,7 @@
     <div class="mx-auto flex max-w-md flex-col gap-6">
         <h1 class="text-2xl font-semibold">{{ __('Crear cuenta') }}</h1>
 
-        <form method="POST" action="{{ route('register') }}" class="flex flex-col gap-4">
+        <form method="POST" action="{{ route('register.store') }}" class="flex flex-col gap-4">
             @csrf
 
             <x-form.input name="name" :label="__('Nombre')" required autofocus autocomplete="name" />

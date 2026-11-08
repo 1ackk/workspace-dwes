@@ -10,22 +10,28 @@ use Illuminate\Support\Facades\Route;
 // Zona pública
 Route::view('/', 'home')->name('home');
 
-// Solo invitados: un usuario autenticado es redirigido al panel
+// Autenticación: un usuario autenticado es redirigido al panel
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'create'])->name('login');
-    Route::post('login', [LoginController::class, 'store']);
+    Route::post('login', [LoginController::class, 'store'])->name('login.store');
 
     Route::get('register', [RegisterController::class, 'create'])->name('register');
-    Route::post('register', [RegisterController::class, 'store']);
+    Route::post('register', [RegisterController::class, 'store'])->name('register.store');
 });
+
+Route::post('logout', [LoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
 // Zona privada: un invitado es redirigido al login
 Route::middleware('auth')->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
 
-    Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
+    // Reservas del usuario con sesión (solo lectura)
+    Route::get('my-bookings', [MyBookingController::class, 'index'])->name('my-bookings.index');
+    Route::get('my-bookings/{booking}', [MyBookingController::class, 'show'])->name('my-bookings.show');
+});
 
-    // Páginas provisionales por rol de gestión: otro rol recibe un 403
+// Gestión por rol: otro rol recibe un 403 y un invitado va al login
+Route::middleware('auth')->group(function () {
     Route::view('admin', 'admin.index')
         ->middleware('role:'.RoleName::Admin->value)
         ->name('admin.index');
@@ -42,11 +48,7 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:'.RoleName::SpaceManager->value)
         ->name('manager.index');
 
-    // Reservas del usuario con sesión (solo lectura)
-    Route::get('my-bookings', [MyBookingController::class, 'index'])->name('my-bookings.index');
-    Route::get('my-bookings/{booking}', [MyBookingController::class, 'show'])->name('my-bookings.show');
-
-    // Gestión de recursos: el grupo filtra por rol y la policy decide por espacio
+    // Recursos: el grupo filtra por rol y la policy decide por espacio
     Route::prefix('manager')
         ->name('manager.')
         ->middleware('role:'.RoleName::SpaceManager->value.'|'.RoleName::Admin->value)

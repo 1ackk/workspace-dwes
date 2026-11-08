@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Manager;
 
-use Illuminate\Validation\Rules\Unique;
+use App\Models\Resource;
 
 class UpdateResourceRequest extends StoreResourceRequest
 {
@@ -14,8 +14,10 @@ class UpdateResourceRequest extends StoreResourceRequest
         return $this->user()->can('update', $this->route('resource')) && parent::authorize();
     }
 
-    protected function uniqueNameRule(): Unique
+    protected function resourceBeingEdited(): ?Resource
     {
-        return parent::uniqueNameRule()->ignore($this->route('resource'));
+        $resource = $this->route('resource');
+
+        return $resource instanceof Resource ? $resource : null;
     }
 }

@@ -158,6 +158,15 @@ describe('create', function () {
             ]);
     });
 
+    test('rejects a name that differs only in case', function () {
+        $this->actingAs($this->manager)
+            ->post(route('manager.resources.store'), resourceData([
+                'space_id' => $this->space->id,
+                'name' => 'PUESTO propio',
+            ]))
+            ->assertSessionHasErrors('name');
+    });
+
     test('allows a name already used in another space', function () {
         $this->actingAs($this->manager)
             ->post(route('manager.resources.store'), resourceData([

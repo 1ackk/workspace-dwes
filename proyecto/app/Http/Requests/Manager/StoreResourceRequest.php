@@ -5,10 +5,10 @@ namespace App\Http\Requests\Manager;
 use App\Enums\ResourceType;
 use App\Models\Resource;
 use App\Models\Space;
+use App\Rules\UniqueResourceName;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Unique;
 
 class StoreResourceRequest extends FormRequest
 {
@@ -27,7 +27,12 @@ class StoreResourceRequest extends FormRequest
     {
         return [
             'space_id' => ['required', 'integer', Rule::exists('spaces', 'id')],
-            'name' => ['required', 'string', 'max:255', $this->uniqueNameRule()],
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                new UniqueResourceName($this->integer('space_id'), $this->resourceBeingEdited()),
+            ],
             'type' => ['required', Rule::enum(ResourceType::class)],
             'capacity' => ['required', 'integer', 'min:0', 'max:65535'],
             'hourly_rate' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:999999.99'],
@@ -44,7 +49,6 @@ class StoreResourceRequest extends FormRequest
             'space_id.exists' => __('El espacio no existe.'),
             'name.required' => __('El nombre es obligatorio.'),
             'name.max' => __('El nombre no puede superar los :max caracteres.'),
-            'name.unique' => __('Ya existe un recurso con este nombre en el espacio.'),
             'type.required' => __('El tipo es obligatorio.'),
             'type.enum' => __('El tipo no es válido.'),
             'capacity.required' => __('La capacidad es obligatoria.'),
@@ -64,8 +68,8 @@ class StoreResourceRequest extends FormRequest
         return Space::find($this->integer('space_id'));
     }
 
-    protected function uniqueNameRule(): Unique
+    protected function resourceBeingEdited(): ?Resource
     {
-        return Rule::unique('resources', 'name')->where('space_id', $this->integer('space_id'));
+        return null;
     }
 }

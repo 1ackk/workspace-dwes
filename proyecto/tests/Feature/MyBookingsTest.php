@@ -28,6 +28,17 @@ function bookingOf(User $owner, string $resourceName = 'Sala Azul'): Booking
         ->create(['date' => '2026-12-01']);
 }
 
+function filteredDates($test, array $filter): array
+{
+    return $test->actingAs($test->user)
+        ->get(route('my-bookings.index', $filter))
+        ->assertOk()
+        ->viewData('bookings')
+        ->getCollection()
+        ->map(fn (Booking $booking) => $booking->date->toDateString())
+        ->all();
+}
+
 test('a user sees only their bookings with date, resources, status and total', function () {
     $user = userWithRole(RoleName::Member);
     bookingOf($user);
@@ -68,7 +79,72 @@ test('shows the empty state', function () {
     $this->actingAs(userWithRole(RoleName::Member))
         ->get(route('my-bookings.index'))
         ->assertOk()
-        ->assertSee(__('Todavía no tienes reservas.'));
+        ->assertSee(__('No hay reservas que mostrar.'));
+});
+
+describe('date filter', function () {
+    beforeEach(function () {
+        $this->user = userWithRole(RoleName::Member);
+
+        foreach (['2026-12-01', '2026-12-10', '2026-12-20'] as $date) {
+            Booking::factory()->for($this->user, 'user')->create(['date' => $date]);
+        }
+    });
+
+    test('shows the date fields in the list', function () {
+        $this->actingAs($this->user)
+            ->get(route('my-bookings.index'))
+            ->assertSee('name="from"', false)
+            ->assertSee('name="to"', false)
+            ->assertSee('type="date"', false);
+    });
+
+    test('filters from a date, including it', function () {
+        expect(filteredDates($this, ['from' => '2026-12-10']))->toBe(['2026-12-20', '2026-12-10']);
+    });
+
+    test('filters up to a date, including it, without a start date', function () {
+        expect(filteredDates($this, ['to' => '2026-12-10']))->toBe(['2026-12-10', '2026-12-01']);
+    });
+
+    test('filters between two dates', function () {
+        expect(filteredDates($this, ['from' => '2026-12-05', 'to' => '2026-12-15']))->toBe(['2026-12-10']);
+    });
+
+    test('keeps the chosen dates in the form', function () {
+        $this->actingAs($this->user)
+            ->get(route('my-bookings.index', ['from' => '2026-12-05']))
+            ->assertSee('value="2026-12-05"', false);
+    });
+
+    test('keeps the filter in the pagination links', function () {
+        Booking::factory()->count(11)->for($this->user, 'user')->create(['date' => '2026-12-25']);
+
+        $this->actingAs($this->user)
+            ->get(route('my-bookings.index', ['from' => '2026-12-20']))
+            ->assertSee('from=2026-12-20&amp;page=2', false);
+    });
+
+    test('never includes bookings of other users', function () {
+        Booking::factory()->create(['date' => '2026-12-10']);
+
+        expect(filteredDates($this, ['from' => '2026-12-10', 'to' => '2026-12-10']))->toBe(['2026-12-10']);
+    });
+
+    test('rejects a range that ends before it starts and shows the error', function () {
+        $this->actingAs($this->user)
+            ->followingRedirects()
+            ->get(route('my-bookings.index', ['from' => '2026-12-20', 'to' => '2026-12-01']))
+            ->assertOk()
+            ->assertSee(__('La fecha final no puede ser anterior a la inicial.'));
+    });
+
+    test('rejects an invalid date and goes back to the clean list', function () {
+        $this->actingAs($this->user)
+            ->get(route('my-bookings.index', ['from' => 'ayer']))
+            ->assertRedirect(route('my-bookings.index'))
+            ->assertSessionHasErrors(['from' => __('La fecha inicial no es válida.')]);
+    });
 });
 
 test('the navigation links to my bookings', function () {

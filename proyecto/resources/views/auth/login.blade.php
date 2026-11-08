@@ -2,7 +2,7 @@
     <div class="mx-auto flex max-w-md flex-col gap-6">
         <h1 class="text-2xl font-semibold">{{ __('Iniciar sesión') }}</h1>
 
-        <form method="POST" action="{{ route('login') }}" class="flex flex-col gap-4">
+        <form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-4">
             @csrf
 
             <x-form.input name="email" type="email" :label="__('Correo electrónico')" required autofocus autocomplete="email" />
