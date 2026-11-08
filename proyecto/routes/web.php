@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\RoleName;
+use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Manager\ResourceController;
@@ -35,6 +36,11 @@ Route::middleware('auth')->group(function () {
     Route::view('admin', 'admin.index')
         ->middleware('role:'.RoleName::Admin->value)
         ->name('admin.index');
+
+    Route::post('admin/maintenance/{task}', MaintenanceController::class)
+        ->whereIn('task', array_keys(MaintenanceController::TASKS))
+        ->middleware('role:'.RoleName::Admin->value)
+        ->name('admin.maintenance.run');
 
     Route::view('accounting', 'accounting.index')
         ->middleware('role:'.RoleName::Accountant->value)

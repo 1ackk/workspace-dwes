@@ -165,6 +165,26 @@ class CoworkingSeeder extends Seeder
             'amount' => $fullyPaid->amount,
         ]);
 
+        // Reservas para los comandos de mantenimiento, sin factura para no alterar ningún saldo:
+        // una pendiente con la retención vencida y una confirmada que ya terminó.
+        $unpaidDay = now()->subDays(3)->startOfDay();
+        Booking::factory()->for($members[0], 'user')
+            ->withSlot(
+                $firstSpace->resources()->where('name', 'Puesto 5')->firstOrFail(),
+                $unpaidDay->copy()->setTime(10, 0),
+                $unpaidDay->copy()->setTime(12, 0),
+            )
+            ->create(['expires_at' => $unpaidDay->copy()->setTime(9, 0)]);
+
+        $finishedDay = now()->subDays(4)->startOfDay();
+        Booking::factory()->confirmed()->for($members[1], 'user')
+            ->withSlot(
+                $firstSpace->resources()->where('name', 'Puesto 6')->firstOrFail(),
+                $finishedDay->copy()->setTime(15, 0),
+                $finishedDay->copy()->setTime(17, 0),
+            )
+            ->create();
+
         Incident::factory()->create([
             'user_id' => $members[0]->id,
             'resource_id' => $projector->id,

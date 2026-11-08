@@ -54,7 +54,8 @@ Una reserva `pending_payment` guarda en `expires_at` el momento en que caduca. S
 Una franja la ocupan las reservas `pending_payment`, `confirmed` y `completed`
 (`BookingStatus::blocking()`). Una pendiente cuyo `expires_at` ya pasó **no ocupa nada**, aunque su
 estado siga siendo `pending_payment`: la regla está en `Booking::blocking()` y no depende de que el
-comando de limpieza haya corrido.
+comando de limpieza haya corrido. Los comandos que cambian estos estados están en
+[comandos.md](comandos.md).
 
 ## Cancelar una reserva
 

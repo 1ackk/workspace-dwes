@@ -14,6 +14,8 @@ use App\Services\Pricing\InvalidSlotException;
 use App\Services\Pricing\PriceCalculator;
 use App\Services\Pricing\Slot;
 use Carbon\CarbonInterface;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -64,6 +66,72 @@ class BookingService
 
             return $locked;
         }, self::TRANSACTION_ATTEMPTS);
+    }
+
+    /**
+     * Marca como caducadas las reservas pendientes cuya retención ya venció.
+     * Devuelve cuántas han cambiado de verdad.
+     */
+    public function releaseUnpaid(CarbonInterface $now): int
+    {
+        return $this->moveEach(fn () => $this->unpaidAt($now), BookingStatus::Expired);
+    }
+
+    public function countUnpaid(CarbonInterface $now): int
+    {
+        return $this->unpaidAt($now)->count();
+    }
+
+    /**
+     * Marca como completadas las reservas confirmadas cuyas franjas ya terminaron todas.
+     * Devuelve cuántas han cambiado de verdad.
+     */
+    public function completePast(CarbonInterface $now): int
+    {
+        return $this->moveEach(fn () => $this->finishedAt($now), BookingStatus::Completed);
+    }
+
+    public function countPast(CarbonInterface $now): int
+    {
+        return $this->finishedAt($now)->count();
+    }
+
+    /**
+     * @return Builder<Booking>
+     */
+    private function unpaidAt(CarbonInterface $now): Builder
+    {
+        return Booking::query()
+            ->where('status', BookingStatus::PendingPayment)
+            ->where('expires_at', '<', $now);
+    }
+
+    /**
+     * @return Builder<Booking>
+     */
+    private function finishedAt(CarbonInterface $now): Builder
+    {
+        return Booking::query()
+            ->where('status', BookingStatus::Confirmed)
+            ->has('slots')
+            ->whereDoesntHave('slots', fn (Builder $slots) => $slots->where('end_at', '>', $now));
+    }
+
+    /**
+     * Cada UPDATE repite la regla completa: si la reserva cambió después de leer los ids
+     * (por ejemplo, se confirmó el pago), la fila ya no cumple la condición y no se pisa.
+     *
+     * @param  Closure(): Builder<Booking>  $candidates
+     */
+    private function moveEach(Closure $candidates, BookingStatus $status): int
+    {
+        $changed = 0;
+
+        foreach ($candidates()->pluck('id') as $id) {
+            $changed += $candidates()->whereKey($id)->update(['status' => $status]);
+        }
+
+        return $changed;
     }
 
     /**

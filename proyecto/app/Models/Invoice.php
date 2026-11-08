@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
+ * @property-read string $balance Solo con el scope overdueInvoices.
  */
 #[Fillable(['user_id', 'rectifies_invoice_id', 'number', 'period_start', 'period_end', 'amount', 'status', 'issued_at', 'due_at'])]
 class Invoice extends Model
