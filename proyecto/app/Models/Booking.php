@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\BookingStatus;
 use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -99,5 +101,64 @@ class Booking extends Model
     public function incidents(): HasMany
     {
         return $this->hasMany(Incident::class);
+    }
+
+    /**
+     * Limita la consulta a las reservas que ocupan su franja. Una pendiente de pago vencida
+     * ya no la ocupa, aunque el comando de limpieza no haya cambiado todavía su estado.
+     *
+     * No es un scope: es la regla común de los scopes available y cancellable. Es pública
+     * porque Resource::available, que está en otro modelo, también la necesita.
+     *
+     * @param  Builder<self>  $query
+     */
+    public static function blocking(Builder $query): void
+    {
+        $query->whereIn('bookings.status', BookingStatus::blocking())
+            ->where(function (Builder $query): void {
+                $query->where('bookings.status', '<>', BookingStatus::PendingPayment)
+                    ->orWhereNull('bookings.expires_at')
+                    ->orWhere('bookings.expires_at', '>', now());
+            });
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function upcoming(Builder $query): void
+    {
+        $query->where('date', '>=', today()->toDateString());
+    }
+
+    /**
+     * Reservas que aún pueden cancelarse. La reserva se cancela entera, así que todas sus
+     * franjas deben cumplir la antelación mínima del espacio de su recurso.
+     *
+     * Los límites se calculan en PHP, uno por cada plazo distinto, porque sumar a una fecha
+     * las horas guardadas en otra columna no se escribe igual en SQLite, MySQL y PostgreSQL.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function cancellable(Builder $query): void
+    {
+        $now = now();
+        $noticeHours = Space::query()->distinct()->pluck('cancellation_notice_hours');
+
+        self::blocking($query);
+
+        $query->where('bookings.status', '<>', BookingStatus::Completed)
+            ->whereDoesntHave('resources', function (Builder $resources) use ($noticeHours, $now): void {
+                $resources->join('spaces', 'spaces.id', '=', 'resources.space_id')
+                    ->where(function (Builder $tooLate) use ($noticeHours, $now): void {
+                        foreach ($noticeHours as $hours) {
+                            $tooLate->orWhere(function (Builder $slot) use ($hours, $now): void {
+                                $slot->where('spaces.cancellation_notice_hours', $hours)
+                                    ->where('booking_resource.start_at', '<', $now->copy()->addHours($hours));
+                            });
+                        }
+                    });
+            });
     }
 }

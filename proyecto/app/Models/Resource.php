@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use App\Enums\ResourceType;
+use Carbon\CarbonInterface;
 use Database\Factories\ResourceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -86,5 +89,43 @@ class Resource extends Model
     public function incidents(): HasMany
     {
         return $this->hasMany(Incident::class);
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function active(Builder $query): void
+    {
+        $query->where('active', true);
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function forSpace(Builder $query, int $spaceId): void
+    {
+        $query->where('space_id', $spaceId);
+    }
+
+    /**
+     * Recursos sin ninguna reserva bloqueante que se solape con la franja [$start, $end).
+     *
+     * Dos franjas se solapan si inicio_A < fin_B y fin_A > inicio_B, de modo que una reserva
+     * que termina justo cuando empieza otra no se solapa con ella.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function available(Builder $query, CarbonInterface $start, CarbonInterface $end, ?int $ignoreBookingId = null): void
+    {
+        $query->whereDoesntHave('bookings', function (Builder $bookings) use ($start, $end, $ignoreBookingId): void {
+            Booking::blocking($bookings);
+
+            $bookings->where('booking_resource.start_at', '<', $end)
+                ->where('booking_resource.end_at', '>', $start)
+                ->when($ignoreBookingId !== null, fn (Builder $query) => $query->whereKeyNot($ignoreBookingId));
+        });
     }
 }
