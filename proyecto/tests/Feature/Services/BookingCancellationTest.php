@@ -210,7 +210,12 @@ test('the first query locks the booking', function () {
 
     $this->service->cancel($booking);
 
-    expect($queries[0])->toContain('from "bookings"')
-        ->toContain('"bookings"."id" = ?')
+    expect(withoutEngineSyntax($queries[0]))->toContain('from bookings')
+        ->toContain('bookings.id = ?')
         ->not->toContain('not exists');
+
+    // SQLite no escribe el bloqueo; en el resto de motores tiene que estar.
+    if (DB::getDriverName() !== 'sqlite') {
+        expect($queries[0])->toEndWith('for update');
+    }
 });

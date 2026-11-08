@@ -60,3 +60,12 @@ function userWithRole(RoleName $role): User
 {
     return User::factory()->create()->assignRole($role);
 }
+
+/**
+ * Quita del SQL lo que cambia según el motor: las comillas de los identificadores
+ * (" en SQLite, ` en MySQL) y el " for update" final, que SQLite no escribe.
+ */
+function withoutEngineSyntax(string $sql): string
+{
+    return (string) preg_replace('/ for update$/', '', str_replace(['`', '"'], '', $sql));
+}

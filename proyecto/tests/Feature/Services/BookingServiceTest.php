@@ -431,17 +431,24 @@ describe('locking', function () {
 
         $lockingQueries = array_filter(
             $queries,
-            fn (QueryExecuted $query) => str_contains($query->sql, 'from "resources" where "resources"."id" in'),
+            fn (QueryExecuted $query) => str_contains(withoutEngineSyntax($query->sql), 'from resources where resources.id in'),
         );
 
-        // whereKey escribe los ids enteros directamente en el SQL, no como parámetros.
-        preg_match('/"id" in \(([\d, ]+)\)/', $queries[0]->sql, $matches);
+        $firstSql = withoutEngineSyntax($queries[0]->sql);
 
-        expect($queries[0]->sql)->toContain('from "resources"')
-            ->toEndWith('order by "id" asc')
+        // whereKey escribe los ids enteros directamente en el SQL, no como parámetros.
+        preg_match('/id in \(([\d, ]+)\)/', $firstSql, $matches);
+
+        expect($firstSql)->toStartWith('select * from resources where resources.id in (')
+            ->toEndWith('order by id asc')
             ->and(array_map(intval(...), explode(', ', $matches[1])))
             ->toEqualCanonicalizing([$first->id, $second->id, $third->id])
             ->and($lockingQueries)->toHaveCount(1);
+
+        // SQLite no escribe el bloqueo; en el resto de motores tiene que estar.
+        if (DB::getDriverName() !== 'sqlite') {
+            expect($queries[0]->sql)->toEndWith('for update');
+        }
     });
 
     test('a request rejected before the lock does not touch the database', function () {
