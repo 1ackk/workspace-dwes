@@ -37,8 +37,11 @@ class LoginRequest extends FormRequest
     {
         return [
             'email.required' => __('El correo electrónico es obligatorio.'),
+            'email.string' => __('El correo electrónico no es válido.'),
             'email.email' => __('El correo electrónico no es válido.'),
             'password.required' => __('La contraseña es obligatoria.'),
+            'password.string' => __('La contraseña no es válida.'),
+            'remember.boolean' => __('El valor de "Recordarme" no es válido.'),
         ];
     }
 

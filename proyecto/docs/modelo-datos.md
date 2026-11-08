@@ -1,4 +1,4 @@
-# WorkSpace · Modelo de datos (sprint 2)
+# WorkSpace · Modelo de datos
 
 Diagrama entidad-relación de la base de datos. Ocho modelos de dominio
 (`User`, `Space`, `Resource`, `Tariff`, `Invoice`, `Booking`, `Payment`, `Incident`)
@@ -198,7 +198,7 @@ Todas se recorren en los tests (`DatabaseSchemaTest` y `RelationshipsTest`).
   que el esquema sea portable.
 - **Email de usuarios borrados**: `users.email` es único también entre borrados; si algún día se borran cuentas, se restaura el usuario en lugar de crear otro con el mismo email.
 
-## Disponibilidad (cómo se aplicará en el servicio de reservas)
+## Disponibilidad (cómo la aplica el servicio de reservas)
 
 El detalle del algoritmo, la cancelación y la prueba de concurrencia están en [reservas.md](reservas.md).
 Los siete scopes del proyecto están explicados en [scopes.md](scopes.md).

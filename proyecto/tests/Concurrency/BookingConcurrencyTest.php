@@ -10,8 +10,11 @@
  * No usa RefreshDatabase: los datos deben estar confirmados para que los hijos los vean.
  */
 
+use App\Enums\BookingStatus;
+use App\Models\Booking;
 use App\Models\Resource;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\InputStream;
@@ -293,6 +296,26 @@ test('two bookings with the resources in opposite order: one wins and there is n
 
     if (usesInnodb()) {
         expect(deadlockCount())->toBe($deadlocksBefore);
+    }
+});
+
+test('two simultaneous cancellations of the same booking: one wins and the other is told it is already cancelled', function () {
+    $resource = Resource::factory()->create();
+
+    foreach (range(1, CONCURRENCY_ROUNDS) as $round) {
+        [$start, $end] = concurrencySlot($round);
+        $booking = Booking::factory()->confirmed()
+            ->withSlot($resource, Carbon::parse($start), Carbon::parse($end))
+            ->create();
+        $job = ['mode' => 'cancel', 'user_id' => $booking->user_id, 'slots' => [], 'booking_id' => $booking->id];
+
+        $results = runWorkers([$job, $job]);
+
+        expectNobodyWasLate($results);
+        expect(outcomesOf($results))->toEqual(['cancelled' => 1, 'not_cancellable' => 1], json_encode($results))
+            ->and(collect($results)->firstWhere('outcome', 'not_cancellable')['message'])->toBe(__('La reserva ya está cancelada.'))
+            ->and($booking->fresh()->status)->toBe(BookingStatus::Cancelled)
+            ->and($booking->fresh()->cancelled_at)->not->toBeNull();
     }
 });
 

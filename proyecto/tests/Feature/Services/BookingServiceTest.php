@@ -275,6 +275,16 @@ describe('validation', function () {
             ->toThrow(InvalidBookingRequestException::class);
     });
 
+    test('a resource deleted just before the lock is rejected and nothing is saved', function () {
+        $stale = Resource::query()->find($this->room->id);
+        Resource::query()->whereKey($this->room->id)->delete();
+
+        expect(fn () => $this->service->createPending($this->user, [slotAt($stale)]))
+            ->toThrow(InvalidBookingRequestException::class, __(':resource no se puede reservar porque no está activo.', ['resource' => 'Sala Azul']));
+
+        expectRowCounts(0, 0);
+    });
+
     test('rejects slots outside the opening hours of the space', function (string $from, string $to) {
         expect(fn () => $this->service->createPending($this->user, [slotAt($this->room, $from, $to)]))
             ->toThrow(InvalidSlotException::class, __(':resource solo se puede reservar de :opens a :closes.', [

@@ -9,6 +9,7 @@
  */
 
 use App\Enums\BookingStatus;
+use App\Exceptions\BookingNotCancellableException;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Booking;
 use App\Models\Resource;
@@ -98,6 +99,13 @@ function lockUnordered(array $slots): string
     return 'locked';
 }
 
+function cancelWithService(int $bookingId): string
+{
+    app(BookingService::class)->cancel(Booking::query()->findOrFail($bookingId));
+
+    return 'cancelled';
+}
+
 $job = json_decode(base64_decode($argv[1]), true);
 
 if (config('database.connections.'.config('database.default').'.database') !== 'workspace_test') {
@@ -125,11 +133,14 @@ try {
         'service' => createWithService($user, $slots),
         'naive' => createNaively($user, $slots),
         'unordered' => lockUnordered($slots),
+        'cancel' => cancelWithService($job['booking_id']),
     };
 
     respond(['outcome' => $outcome, 'late' => $late]);
 } catch (SlotUnavailableException) {
     respond(['outcome' => 'unavailable', 'late' => $late]);
+} catch (BookingNotCancellableException $exception) {
+    respond(['outcome' => 'not_cancellable', 'message' => $exception->getMessage(), 'late' => $late]);
 } catch (QueryException $exception) {
     $isDeadlock = str_contains(strtolower($exception->getMessage()), 'deadlock');
 

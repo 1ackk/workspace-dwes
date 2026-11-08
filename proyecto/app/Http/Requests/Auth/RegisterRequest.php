@@ -35,12 +35,15 @@ class RegisterRequest extends FormRequest
     {
         return [
             'name.required' => __('El nombre es obligatorio.'),
+            'name.string' => __('El nombre no es válido.'),
             'name.max' => __('El nombre no puede superar los :max caracteres.'),
             'email.required' => __('El correo electrónico es obligatorio.'),
+            'email.string' => __('El correo electrónico no es válido.'),
             'email.email' => __('El correo electrónico no es válido.'),
             'email.max' => __('El correo electrónico no puede superar los :max caracteres.'),
             'email.unique' => __('Ya existe una cuenta con este correo electrónico.'),
             'password.required' => __('La contraseña es obligatoria.'),
+            'password.string' => __('La contraseña no es válida.'),
             'password.confirmed' => __('La confirmación de la contraseña no coincide.'),
             'password.min' => __('La contraseña debe tener al menos :min caracteres.'),
         ];

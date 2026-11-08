@@ -114,8 +114,14 @@ Escenarios:
   recibe `SlotUnavailableException`.
 - Dos reservas con los recursos en orden opuesto (`[A,B]` y `[B,A]`): una gana y el contador
   `lock_deadlocks` de InnoDB no sube.
+- Dos cancelaciones simultáneas de la misma reserva, en 5 rondas: una gana y la otra recibe "La
+  reserva ya está cancelada."
 - **Control negativo sin bloqueo:** comprobar e insertar sin bloquear sí produce doble reserva.
 - **Control negativo de orden:** bloquear en orden opuesto sí hace subir el contador.
+
+El reintento tras un interbloqueo (los 3 intentos de la transacción) no se prueba, porque el servicio
+no llega a provocarlo: al bloquear siempre en orden ascendente de id no se forma el ciclo de esperas,
+y el contador de interbloqueos no sube en el escenario de orden opuesto.
 
 Los controles negativos usan modos que existen solo en el script de prueba y demuestran que la
 prueba es capaz de detectar esos fallos. Si `lock_deadlocks` está desactivado, la prueba falla e

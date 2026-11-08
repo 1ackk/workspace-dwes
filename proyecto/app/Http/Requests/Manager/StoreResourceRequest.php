@@ -46,8 +46,10 @@ class StoreResourceRequest extends FormRequest
     {
         return [
             'space_id.required' => __('El espacio es obligatorio.'),
+            'space_id.integer' => __('El espacio no es válido.'),
             'space_id.exists' => __('El espacio no existe.'),
             'name.required' => __('El nombre es obligatorio.'),
+            'name.string' => __('El nombre no es válido.'),
             'name.max' => __('El nombre no puede superar los :max caracteres.'),
             'type.required' => __('El tipo es obligatorio.'),
             'type.enum' => __('El tipo no es válido.'),
