@@ -7,6 +7,7 @@ use App\Models\Resource;
 use App\Models\Space;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
@@ -76,6 +77,40 @@ test('a booking with one managed resource among several counts as managed', func
         ->create();
 
     expect($manager->can('view', $booking))->toBeTrue();
+});
+
+test('applies each role to a booking in a space run by another manager', function (string $ability, RoleName $role, bool $expected) {
+    $user = userWithRole($role);
+    $otherSpace = Space::factory()->create(['manager_id' => userWithRole(RoleName::SpaceManager)->id]);
+
+    expect($user->can($ability, confirmedBooking(User::factory()->create(), $otherSpace)))->toBe($expected);
+})->with([
+    'view usuario' => ['view', RoleName::Member, false],
+    'view recepción' => ['view', RoleName::Reception, true],
+    'view responsable' => ['view', RoleName::SpaceManager, false],
+    'view contable' => ['view', RoleName::Accountant, false],
+    'view administrador' => ['view', RoleName::Admin, true],
+    'cancel usuario' => ['cancel', RoleName::Member, false],
+    'cancel recepción' => ['cancel', RoleName::Reception, true],
+    'cancel responsable' => ['cancel', RoleName::SpaceManager, false],
+    'cancel contable' => ['cancel', RoleName::Accountant, false],
+    'cancel administrador' => ['cancel', RoleName::Admin, true],
+]);
+
+test('a user without a role cannot view even their own booking', function () {
+    $user = User::factory()->create();
+
+    expect($user->can('view', confirmedBooking($user)))->toBeFalse();
+});
+
+test('a guest can do nothing with bookings', function () {
+    $booking = confirmedBooking(User::factory()->create());
+    $guest = Gate::forUser(null);
+
+    expect($guest->allows('viewAny', Booking::class))->toBeFalse()
+        ->and($guest->allows('create', Booking::class))->toBeFalse()
+        ->and($guest->allows('view', $booking))->toBeFalse()
+        ->and($guest->allows('cancel', $booking))->toBeFalse();
 });
 
 test('cancel decides who, never when: it does not depend on the booking state', function (array $state) {

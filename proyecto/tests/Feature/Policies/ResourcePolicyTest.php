@@ -4,6 +4,7 @@ use App\Enums\RoleName;
 use App\Models\Resource;
 use App\Models\Space;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
@@ -53,6 +54,41 @@ test('applies each role to managed and unrelated resources', function (
     'delete contable' => ['delete', RoleName::Accountant, false, false],
     'delete administrador' => ['delete', RoleName::Admin, true, true],
 ]);
+
+test('applies each role to a resource in a space run by another manager', function (string $ability, RoleName $role, bool $expected) {
+    $user = userWithRole($role);
+    $otherSpace = Space::factory()->create(['manager_id' => userWithRole(RoleName::SpaceManager)->id]);
+    $resource = Resource::factory()->for($otherSpace)->create();
+
+    expect($user->can($ability, $resource))->toBe($expected);
+})->with([
+    'view usuario' => ['view', RoleName::Member, false],
+    'view recepción' => ['view', RoleName::Reception, true],
+    'view responsable' => ['view', RoleName::SpaceManager, false],
+    'view contable' => ['view', RoleName::Accountant, false],
+    'view administrador' => ['view', RoleName::Admin, true],
+    'update usuario' => ['update', RoleName::Member, false],
+    'update recepción' => ['update', RoleName::Reception, false],
+    'update responsable' => ['update', RoleName::SpaceManager, false],
+    'update contable' => ['update', RoleName::Accountant, false],
+    'update administrador' => ['update', RoleName::Admin, true],
+    'delete usuario' => ['delete', RoleName::Member, false],
+    'delete recepción' => ['delete', RoleName::Reception, false],
+    'delete responsable' => ['delete', RoleName::SpaceManager, false],
+    'delete contable' => ['delete', RoleName::Accountant, false],
+    'delete administrador' => ['delete', RoleName::Admin, true],
+]);
+
+test('a guest can do nothing with resources through the policy', function () {
+    $resource = Resource::factory()->create();
+    $guest = Gate::forUser(null);
+
+    expect($guest->allows('viewAny', Resource::class))->toBeFalse()
+        ->and($guest->allows('create', Resource::class))->toBeFalse()
+        ->and($guest->allows('view', $resource))->toBeFalse()
+        ->and($guest->allows('update', $resource))->toBeFalse()
+        ->and($guest->allows('delete', $resource))->toBeFalse();
+});
 
 test('create in a space depends on who manages it', function (RoleName $role, bool $managed, bool $unrelated) {
     $user = userWithRole($role);

@@ -41,7 +41,7 @@ class RoleSeeder extends Seeder
             'spaces.view-any',
             'resources.view-any',
             'bookings.view-any', 'bookings.view', 'bookings.create', 'bookings.cancel',
-            'incidents.view-any', 'incidents.view', 'incidents.create',
+            'incidents.view-any', 'incidents.view', 'incidents.create', 'incidents.respond',
             'tariffs.view-any',
             'users.view-any',
         ],

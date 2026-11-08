@@ -70,8 +70,8 @@ describe('role seeder', function () {
         ],
         'recepción' => [
             RoleName::Reception,
-            ['bookings.cancel', 'users.view-any', 'spaces.view-any'],
-            ['incidents.respond', 'incidents.update', 'payments.create', 'users.manage'],
+            ['bookings.cancel', 'users.view-any', 'spaces.view-any', 'incidents.respond'],
+            ['incidents.update', 'payments.create', 'users.manage'],
         ],
         'responsable de espacio' => [
             RoleName::SpaceManager,
