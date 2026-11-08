@@ -34,7 +34,7 @@ it('relates a space with its resources in both directions', function () {
         ->and($resources->first()->space->is($space))->toBeTrue();
 });
 
-it('relates a resource with its tariffs, incidents and bookings', function () {
+it('relates a resource with its tariffs, incidents, bookings and slots', function () {
     $resource = Resource::factory()->create();
     $tariff = Tariff::factory()->for($resource)->create();
     $incident = Incident::factory()->for($resource)->create();
@@ -45,6 +45,7 @@ it('relates a resource with its tariffs, incidents and bookings', function () {
     expect($resource->tariffs->pluck('id')->all())->toEqual([$tariff->id])
         ->and($resource->incidents->pluck('id')->all())->toEqual([$incident->id])
         ->and($resource->bookings->pluck('id')->all())->toEqual([$booking->id])
+        ->and($resource->slots->pluck('booking_id')->all())->toEqual([$booking->id])
         ->and($tariff->resource->is($resource))->toBeTrue()
         ->and($incident->resource->is($resource))->toBeTrue();
 });

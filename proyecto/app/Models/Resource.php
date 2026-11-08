@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ResourceType;
+use App\Services\Occupancy\ResourceOccupancy;
 use Carbon\CarbonInterface;
 use Database\Factories\ResourceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 
 /**
  * @property int $id
@@ -33,6 +35,12 @@ class Resource extends Model
 {
     /** @use HasFactory<ResourceFactory> */
     use HasFactory;
+
+    /**
+     * Resultado del scope occupancyByPeriod. Va declarada para que Eloquent no la trate como
+     * un atributo: no se guarda en la base de datos ni sale en toArray().
+     */
+    public ?ResourceOccupancy $occupancy = null;
 
     /**
      * @return array<string, string>
@@ -84,6 +92,16 @@ class Resource extends Model
     }
 
     /**
+     * Las filas de la pivote como modelo, para trabajar con las franjas del recurso.
+     *
+     * @return HasMany<BookingResource, $this>
+     */
+    public function slots(): HasMany
+    {
+        return $this->hasMany(BookingResource::class);
+    }
+
+    /**
      * @return HasMany<Incident, $this>
      */
     public function incidents(): HasMany
@@ -126,6 +144,41 @@ class Resource extends Model
             $bookings->where('booking_resource.start_at', '<', $end)
                 ->where('booking_resource.end_at', '>', $start)
                 ->when($ignoreBookingId !== null, fn (Builder $query) => $query->whereKeyNot($ignoreBookingId));
+        });
+    }
+
+    /**
+     * Ocupación de cada recurso en el periodo semiabierto [$from, $to): deja el resultado en
+     * la propiedad $occupancy de cada modelo devuelto por get().
+     *
+     * El recorte de franjas no se puede escribir en SQL portable, así que el scope carga solo
+     * lo necesario y calcula en PHP. Son tres consultas, haya los recursos que haya.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function occupancyByPeriod(Builder $query, CarbonInterface $from, CarbonInterface $to): void
+    {
+        if ($to->lessThanOrEqualTo($from)) {
+            throw new InvalidArgumentException('El final del periodo debe ser posterior a su inicio.');
+        }
+
+        $from = $from->copy()->setTimezone(config('app.timezone'));
+        $to = $to->copy()->setTimezone(config('app.timezone'));
+
+        $query->with([
+            'space',
+            'slots' => fn (HasMany $slots) => $slots
+                ->where('start_at', '<', $to)
+                ->where('end_at', '>', $from)
+                ->whereHas('booking', fn (Builder $bookings) => Booking::blocking($bookings)),
+        ])->afterQuery(function (iterable $results) use ($from, $to): void {
+            // pluck() y cursor() también pasan por aquí, pero sin modelos o sin eager loading.
+            foreach ($results as $resource) {
+                if ($resource instanceof self && $resource->relationLoaded('slots')) {
+                    $resource->occupancy = ResourceOccupancy::of($resource, $from, $to);
+                }
+            }
         });
     }
 }

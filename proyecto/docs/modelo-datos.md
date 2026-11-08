@@ -167,6 +167,7 @@ Todas se recorren en los tests (`DatabaseSchemaTest` y `RelationshipsTest`).
 | Resource | `tariffs` | 1:n | Tariff |
 | Resource | `incidents` | 1:n | Incident |
 | Resource | `bookings` | n:n (pivote con datos) | Booking |
+| Resource | `slots` | 1:n | BookingResource |
 | Booking | `resources` | n:n (pivote con datos) | Resource |
 | Booking | `slots` | 1:n | BookingResource |
 | Booking | `invoice` | n:1 | Invoice |
@@ -200,6 +201,7 @@ Todas se recorren en los tests (`DatabaseSchemaTest` y `RelationshipsTest`).
 ## Disponibilidad (cómo se aplicará en el servicio de reservas)
 
 El detalle del algoritmo, la cancelación y la prueba de concurrencia están en [reservas.md](reservas.md).
+Los siete scopes del proyecto están explicados en [scopes.md](scopes.md).
 
 Las franjas son semiabiertas `[start_at, end_at)`: dos franjas del mismo recurso se solapan
 si `inicio_A < fin_B` y `fin_A > inicio_B`. El esquema no impide los solapes por sí solo;

@@ -37,4 +37,12 @@ class PaymentFactory extends Factory
             'paid_at' => null,
         ]);
     }
+
+    public function failed(): static
+    {
+        return $this->state(fn () => [
+            'status' => PaymentStatus::Failed,
+            'paid_at' => null,
+        ]);
+    }
 }

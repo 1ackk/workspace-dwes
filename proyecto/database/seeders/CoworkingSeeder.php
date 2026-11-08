@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Enums\InvoiceStatus;
+use App\Enums\BookingStatus;
 use App\Enums\RoleName;
 use App\Models\Booking;
 use App\Models\Incident;
@@ -121,10 +121,49 @@ class CoworkingSeeder extends Seeder
             ->withSlot($meetingRoom, $day->copy()->setTime(10, 0), $day->copy()->setTime(12, 0))
             ->create(['date' => $day->toDateString()]);
 
-        // Factura vencida sin pagar.
-        Invoice::factory()->overdue()
-            ->for($members[4], 'user')
-            ->create(['amount' => 45.00, 'status' => InvoiceStatus::Pending]);
+        // Facturas vencidas para el scope overdueInvoices. Cada reserva usa un recurso, un día y
+        // una hora propios: el seeder no pasa por el servicio de reservas y nada impediría un solape.
+        $overdueInvoice = function (User $member, string $resourceName, int $daysAgo, int $hour) use ($firstSpace): Invoice {
+            $start = now()->subDays($daysAgo)->setTime($hour, 0);
+            $resource = $firstSpace->resources()->where('name', $resourceName)->firstOrFail();
+
+            $booking = Booking::factory()->for($member, 'user')
+                ->withSlot($resource, $start, $start->copy()->addHours(3))
+                ->create(['status' => BookingStatus::Completed, 'expires_at' => null]);
+
+            $invoice = Invoice::factory()->overdue()->for($member, 'user')->create([
+                'period_start' => $start->copy()->startOfMonth()->toDateString(),
+                'period_end' => $start->copy()->endOfMonth()->toDateString(),
+                'amount' => $booking->refresh()->total,
+            ]);
+            $booking->update(['invoice_id' => $invoice->id]);
+
+            return $invoice;
+        };
+
+        // Vencida sin ningún pago: entra por el total.
+        $overdueInvoice($members[4], 'Puesto 2', 10, 9);
+
+        // Vencida con un pago parcial completado: entra por la mitad restante.
+        $partlyPaid = $overdueInvoice($members[2], 'Puesto 3', 12, 11);
+        Payment::factory()->create([
+            'invoice_id' => $partlyPaid->id,
+            'amount' => round((float) $partlyPaid->amount / 2, 2),
+        ]);
+
+        // Vencida con un pago fallido: el pago no cuenta y entra por el total.
+        $failedPayment = $overdueInvoice($members[3], 'Puesto 4', 14, 14);
+        Payment::factory()->failed()->create([
+            'invoice_id' => $failedPayment->id,
+            'amount' => $failedPayment->amount,
+        ]);
+
+        // Caso límite: pagada del todo pero aún marcada como pendiente. No entra (saldo 0).
+        $fullyPaid = $overdueInvoice($members[4], 'Sala 2', 16, 16);
+        Payment::factory()->create([
+            'invoice_id' => $fullyPaid->id,
+            'amount' => $fullyPaid->amount,
+        ]);
 
         Incident::factory()->create([
             'user_id' => $members[0]->id,

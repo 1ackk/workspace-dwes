@@ -99,9 +99,9 @@ it('seeds a consistent demo coworking without overlapping active bookings', func
     expect(User::count())->toBe(10)
         ->and(Space::count())->toBe(2)
         ->and(Resource::count())->toBe(20)
-        ->and(Booking::count())->toBe(4)
-        ->and(Invoice::count())->toBe(3)
-        ->and(Payment::count())->toBe(1)
+        ->and(Booking::count())->toBe(8)
+        ->and(Invoice::count())->toBe(6)
+        ->and(Payment::count())->toBe(4)
         ->and(Incident::count())->toBe(1);
 
     $slots = BookingResource::query()

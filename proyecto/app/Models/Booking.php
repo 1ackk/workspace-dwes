@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BookingStatus;
+use Carbon\CarbonInterface;
 use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -112,13 +113,15 @@ class Booking extends Model
      *
      * @param  Builder<self>  $query
      */
-    public static function blocking(Builder $query): void
+    public static function blocking(Builder $query, ?CarbonInterface $now = null): void
     {
+        $now ??= now();
+
         $query->whereIn('bookings.status', BookingStatus::blocking())
-            ->where(function (Builder $query): void {
+            ->where(function (Builder $query) use ($now): void {
                 $query->where('bookings.status', '<>', BookingStatus::PendingPayment)
                     ->orWhereNull('bookings.expires_at')
-                    ->orWhere('bookings.expires_at', '>', now());
+                    ->orWhere('bookings.expires_at', '>', $now);
             });
     }
 
