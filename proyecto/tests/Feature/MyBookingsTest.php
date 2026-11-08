@@ -6,6 +6,7 @@ use App\Models\Resource;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
@@ -20,12 +21,12 @@ afterEach(function () {
 function bookingOf(User $owner, string $resourceName = 'Sala Azul'): Booking
 {
     $resource = Resource::factory()->create(['name' => $resourceName, 'hourly_rate' => 10]);
-    $start = now()->addDay()->setTime(10, 0);
+    $start = Carbon::parse('2026-12-01 10:00');
 
     return Booking::factory()->confirmed()
         ->for($owner, 'user')
         ->withSlot($resource, $start, $start->copy()->addHours(2))
-        ->create(['date' => '2026-12-01']);
+        ->create();
 }
 
 function filteredDates($test, array $filter): array

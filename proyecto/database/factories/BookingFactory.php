@@ -8,6 +8,7 @@ use App\Models\Resource;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Carbon;
 
 /**
  * @extends Factory<Booking>
@@ -57,7 +58,8 @@ class BookingFactory extends Factory
 
     /**
      * Añade un recurso con su franja y calcula el precio (tarifa base × horas)
-     * y el total. Se puede encadenar para reservas multirrecurso.
+     * y el total. La fecha de la reserva es la de su franja más temprana.
+     * Se puede encadenar para reservas multirrecurso.
      */
     public function withSlot(Resource $resource, CarbonInterface $start, CarbonInterface $end): static
     {
@@ -71,7 +73,10 @@ class BookingFactory extends Factory
                 'precio_final' => $price,
             ]);
 
-            $booking->update(['total' => (float) $booking->total + $price]);
+            $booking->update([
+                'total' => (float) $booking->total + $price,
+                'date' => Carbon::parse($booking->slots()->min('start_at'))->toDateString(),
+            ]);
         });
     }
 }
