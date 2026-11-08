@@ -61,7 +61,7 @@ class CoworkingSeeder extends Seeder
             Resource::factory()->projector()->create(['space_id' => $space->id, 'name' => 'Proyector']);
         }
 
-        // Reglas de tarifa generales del coworking y una específica.
+        // Recargos generales del coworking: tarde y fin de semana.
         Tariff::factory()->afternoon()->create();
         Tariff::factory()->weekend()->create();
 
@@ -70,6 +70,14 @@ class CoworkingSeeder extends Seeder
         $projector = $firstSpace->resources()->where('name', 'Proyector')->firstOrFail();
         $desk = $firstSpace->resources()->where('name', 'Puesto 1')->firstOrFail();
         $room = $firstSpace->resources()->where('name', 'Sala 1')->firstOrFail();
+
+        // Tarifa de un recurso concreto: base promocional del Puesto 1 durante un mes.
+        Tariff::factory()->for($desk)->create([
+            'name' => 'Promoción Puesto 1',
+            'price_per_hour' => 2.50,
+            'valid_from' => now()->toDateString(),
+            'valid_until' => now()->addMonth()->toDateString(),
+        ]);
 
         $day = now()->addDay()->startOfDay();
 
