@@ -58,3 +58,4 @@ Invoice e Incident llegarán en sprints posteriores.
 - `incidents.update` sirve para cambiar el estado de una incidencia; `incidents.respond`, solo para comentar.
 - `payments.create` permite al usuario pagar su propia reserva.
 - `bookings.view` permite al contable ver el detalle de sus propias reservas en "Mis reservas".
+- `bookings.cancel` y `BookingPolicy::cancel` deciden quién puede cancelar. Cuándo se puede lo decide `BookingService` con el scope `cancellable` (ver [reservas.md](reservas.md)).

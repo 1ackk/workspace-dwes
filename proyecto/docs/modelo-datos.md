@@ -199,6 +199,8 @@ Todas se recorren en los tests (`DatabaseSchemaTest` y `RelationshipsTest`).
 
 ## Disponibilidad (cómo se aplicará en el servicio de reservas)
 
+El detalle del algoritmo, la cancelación y la prueba de concurrencia están en [reservas.md](reservas.md).
+
 Las franjas son semiabiertas `[start_at, end_at)`: dos franjas del mismo recurso se solapan
 si `inicio_A < fin_B` y `fin_A > inicio_B`. El esquema no impide los solapes por sí solo;
 lo hace el servicio de reservas, dentro de una transacción:

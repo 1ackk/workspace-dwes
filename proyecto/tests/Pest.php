@@ -20,6 +20,11 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
 
+// Sin RefreshDatabase: los procesos hijos deben ver datos ya confirmados.
+pest()->extend(TestCase::class)
+    ->group('concurrency')
+    ->in('Concurrency');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

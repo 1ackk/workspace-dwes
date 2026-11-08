@@ -78,18 +78,20 @@ test('a booking with one managed resource among several counts as managed', func
     expect($manager->can('view', $booking))->toBeTrue();
 });
 
-test('cancel depends on the booking state', function (array $state, bool $expected) {
+test('cancel decides who, never when: it does not depend on the booking state', function (array $state) {
     $owner = userWithRole(RoleName::Member);
     $admin = userWithRole(RoleName::Admin);
+    $other = userWithRole(RoleName::Member);
     $booking = Booking::factory()->for($owner, 'user')->create($state);
 
-    expect($owner->can('cancel', $booking))->toBe($expected)
-        ->and($admin->can('cancel', $booking))->toBe($expected);
+    expect($owner->can('cancel', $booking))->toBeTrue()
+        ->and($admin->can('cancel', $booking))->toBeTrue()
+        ->and($other->can('cancel', $booking))->toBeFalse();
 })->with([
-    'confirmada' => fn () => [['status' => BookingStatus::Confirmed, 'expires_at' => null], true],
-    'completada' => fn () => [['status' => BookingStatus::Completed, 'expires_at' => null], true],
-    'pendiente vigente' => fn () => [['status' => BookingStatus::PendingPayment, 'expires_at' => now()->addMinutes(5)], true],
-    'pendiente vencida' => fn () => [['status' => BookingStatus::PendingPayment, 'expires_at' => now()->subMinute()], false],
-    'cancelada' => fn () => [['status' => BookingStatus::Cancelled, 'expires_at' => null], false],
-    'caducada' => fn () => [['status' => BookingStatus::Expired, 'expires_at' => now()->subMinute()], false],
+    'confirmada' => fn () => ['status' => BookingStatus::Confirmed, 'expires_at' => null],
+    'completada' => fn () => ['status' => BookingStatus::Completed, 'expires_at' => null],
+    'pendiente vigente' => fn () => ['status' => BookingStatus::PendingPayment, 'expires_at' => now()->addMinutes(5)],
+    'pendiente vencida' => fn () => ['status' => BookingStatus::PendingPayment, 'expires_at' => now()->subMinute()],
+    'cancelada' => fn () => ['status' => BookingStatus::Cancelled, 'expires_at' => null],
+    'caducada' => fn () => ['status' => BookingStatus::Expired, 'expires_at' => now()->subMinute()],
 ]);

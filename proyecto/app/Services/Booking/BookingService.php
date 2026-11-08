@@ -3,9 +3,11 @@
 namespace App\Services\Booking;
 
 use App\Enums\BookingStatus;
+use App\Exceptions\BookingNotCancellableException;
 use App\Exceptions\InvalidBookingRequestException;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Booking;
+use App\Models\BookingResource;
 use App\Models\Resource;
 use App\Models\User;
 use App\Services\Pricing\InvalidSlotException;
@@ -38,6 +40,70 @@ class BookingService
         $this->assertValidRequest($slots);
 
         return DB::transaction(fn () => $this->reserve($user, $slots), self::TRANSACTION_ATTEMPTS);
+    }
+
+    /**
+     * Cancela una reserva si el scope cancellable lo permite: es la única fuente de la regla.
+     *
+     * La fila se bloquea para serializar esta operación con otras sobre la misma reserva, y
+     * el bloqueo es la primera consulta por el mismo motivo que en createPending.
+     */
+    public function cancel(Booking $booking): Booking
+    {
+        return DB::transaction(function () use ($booking): Booking {
+            $locked = Booking::query()->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+
+            if (! Booking::query()->whereKey($locked->id)->cancellable()->exists()) {
+                throw $this->whyNotCancellable($locked);
+            }
+
+            $locked->update([
+                'status' => BookingStatus::Cancelled,
+                'cancelled_at' => now(),
+            ]);
+
+            return $locked;
+        }, self::TRANSACTION_ATTEMPTS);
+    }
+
+    /**
+     * Solo explica el motivo: la decisión ya la ha tomado el scope cancellable.
+     */
+    private function whyNotCancellable(Booking $booking): BookingNotCancellableException
+    {
+        return match ($booking->status) {
+            BookingStatus::Cancelled => BookingNotCancellableException::alreadyCancelled(),
+            BookingStatus::Expired => BookingNotCancellableException::expired(),
+            BookingStatus::Completed => BookingNotCancellableException::completed(),
+            default => $this->stillHoldsItsSlots($booking)
+                ? $this->pastDeadline($booking)
+                : BookingNotCancellableException::expired(),
+        };
+    }
+
+    private function stillHoldsItsSlots(Booking $booking): bool
+    {
+        $query = Booking::query()->whereKey($booking->id);
+        Booking::blocking($query);
+
+        return $query->exists();
+    }
+
+    /**
+     * El momento límite de la reserva es el de la franja que primero deja de poder cancelarse.
+     */
+    private function pastDeadline(Booking $booking): BookingNotCancellableException
+    {
+        $strictest = $booking->slots()->with('resource.space')->get()
+            ->map(function (BookingResource $slot): array {
+                $hours = $slot->resource->space->cancellation_notice_hours;
+
+                return ['hours' => $hours, 'deadline' => $slot->start_at->copy()->subHours($hours)];
+            })
+            ->sortBy(fn (array $limit) => $limit['deadline']->getTimestamp())
+            ->firstOrFail();
+
+        return BookingNotCancellableException::pastDeadline($strictest['hours'], $strictest['deadline']);
     }
 
     private function inAppTimezone(Slot $slot): Slot

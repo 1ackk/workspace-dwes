@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Enums\BookingStatus;
 use App\Enums\RoleName;
 use App\Models\Booking;
 use App\Models\User;
@@ -30,9 +29,12 @@ class BookingPolicy
         return $user->can('bookings.create');
     }
 
+    /**
+     * Quién puede cancelar. Cuándo se puede lo decide BookingService con el scope cancellable.
+     */
     public function cancel(User $user, Booking $booking): bool
     {
-        if (! $user->can('bookings.cancel') || ! $this->isCancellable($booking)) {
+        if (! $user->can('bookings.cancel')) {
             return false;
         }
 
@@ -61,17 +63,5 @@ class BookingPolicy
             && $booking->resources()
                 ->whereHas('space', fn ($query) => $query->where('manager_id', $user->id))
                 ->exists();
-    }
-
-    private function isCancellable(Booking $booking): bool
-    {
-        if (in_array($booking->status, [BookingStatus::Cancelled, BookingStatus::Expired], true)) {
-            return false;
-        }
-
-        // Una pendiente vencida ya está caducada aunque el comando no haya cambiado su estado.
-        return $booking->status !== BookingStatus::PendingPayment
-            || $booking->expires_at === null
-            || $booking->expires_at->isFuture();
     }
 }
