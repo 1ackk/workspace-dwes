@@ -18,8 +18,22 @@
     </head>
     <body class="flex min-h-screen flex-col bg-gray-50 font-sans text-gray-900 antialiased">
         <header class="border-b border-gray-200 bg-white">
-            <div class="mx-auto max-w-5xl px-4 py-4">
+            <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
                 <a href="{{ route('home') }}" class="text-lg font-semibold">{{ config('app.name') }}</a>
+
+                <nav class="flex items-center gap-4 text-sm">
+                    @auth
+                        <a href="{{ route('dashboard') }}" class="hover:underline">{{ __('Panel') }}</a>
+
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="cursor-pointer hover:underline">{{ __('Cerrar sesión') }}</button>
+                        </form>
+                    @else
+                        <a href="{{ route('login') }}" class="hover:underline">{{ __('Iniciar sesión') }}</a>
+                        <a href="{{ route('register') }}" class="hover:underline">{{ __('Crear cuenta') }}</a>
+                    @endauth
+                </nav>
             </div>
         </header>
 

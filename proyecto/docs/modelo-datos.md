@@ -195,6 +195,7 @@ Todas se recorren en los tests (`DatabaseSchemaTest` y `RelationshipsTest`).
   un recurso con reservas se retira con `active = false`, no se borra.
 - **Estados** como cadenas con enums PHP (`App\Enums`), no `ENUM` de base de datos, para
   que el esquema sea portable.
+- **Email de usuarios borrados**: `users.email` es único también entre borrados; si algún día se borran cuentas, se restaura el usuario en lugar de crear otro con el mismo email.
 
 ## Disponibilidad (cómo se aplicará en el servicio de reservas)
 
