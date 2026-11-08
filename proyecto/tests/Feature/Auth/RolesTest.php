@@ -12,11 +12,6 @@ beforeEach(function () {
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 });
 
-function userWithRole(RoleName $role): User
-{
-    return User::factory()->create()->assignRole($role);
-}
-
 describe('role seeder', function () {
     test('creates the five roles with their exact names', function () {
         $this->seed(RoleSeeder::class);
@@ -85,8 +80,8 @@ describe('role seeder', function () {
         ],
         'contable' => [
             RoleName::Accountant,
-            ['invoices.void', 'payments.view-any', 'reports.view'],
-            ['payments.create', 'bookings.view', 'tariffs.manage'],
+            ['invoices.void', 'payments.view-any', 'reports.view', 'bookings.view'],
+            ['payments.create', 'bookings.create', 'tariffs.manage'],
         ],
     ]);
 });

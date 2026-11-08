@@ -24,6 +24,7 @@
                 <nav class="flex items-center gap-4 text-sm">
                     @auth
                         <a href="{{ route('dashboard') }}" class="hover:underline">{{ __('Panel') }}</a>
+                        <a href="{{ route('my-bookings.index') }}" class="hover:underline">{{ __('Mis reservas') }}</a>
 
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf

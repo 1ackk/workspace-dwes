@@ -10,6 +10,17 @@ enum BookingStatus: string
     case Expired = 'expired';
     case Completed = 'completed';
 
+    public function label(): string
+    {
+        return match ($this) {
+            self::PendingPayment => __('Pendiente de pago'),
+            self::Confirmed => __('Confirmada'),
+            self::Cancelled => __('Cancelada'),
+            self::Expired => __('Caducada'),
+            self::Completed => __('Completada'),
+        };
+    }
+
     /**
      * Estados que ocupan la franja de sus recursos (una pendiente solo mientras no caduque).
      *

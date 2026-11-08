@@ -54,6 +54,7 @@ class RoleSeeder extends Seeder
             'reports.view',
         ],
         RoleName::Accountant->value => [
+            'bookings.view',
             'invoices.view-any', 'invoices.view', 'invoices.create', 'invoices.void',
             'payments.view-any', 'payments.view',
             'tariffs.view-any',

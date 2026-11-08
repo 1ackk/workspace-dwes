@@ -3,6 +3,8 @@
 use App\Enums\RoleName;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Manager\ResourceController;
+use App\Http\Controllers\MyBookingController;
 use Illuminate\Support\Facades\Route;
 
 // Zona pública
@@ -39,4 +41,16 @@ Route::middleware('auth')->group(function () {
     Route::view('manager', 'manager.index')
         ->middleware('role:'.RoleName::SpaceManager->value)
         ->name('manager.index');
+
+    // Reservas del usuario con sesión (solo lectura)
+    Route::get('my-bookings', [MyBookingController::class, 'index'])->name('my-bookings.index');
+    Route::get('my-bookings/{booking}', [MyBookingController::class, 'show'])->name('my-bookings.show');
+
+    // Gestión de recursos: el grupo filtra por rol y la policy decide por espacio
+    Route::prefix('manager')
+        ->name('manager.')
+        ->middleware('role:'.RoleName::SpaceManager->value.'|'.RoleName::Admin->value)
+        ->group(function () {
+            Route::resource('resources', ResourceController::class)->except(['show', 'destroy']);
+        });
 });

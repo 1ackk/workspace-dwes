@@ -29,7 +29,7 @@ decidirán las policies.
 | `resources.update` | | | ✓* | | ✓ |
 | `resources.delete` | | | | | ✓ |
 | `bookings.view-any` | | ✓† | ✓* | | ✓ |
-| `bookings.view` | ✓* | ✓† | ✓* | | ✓ |
+| `bookings.view` | ✓* | ✓† | ✓* | ✓*† | ✓ |
 | `bookings.create` | ✓ | ✓† | | | ✓ |
 | `bookings.cancel` | ✓* | ✓† | | | ✓ |
 | `incidents.view-any` | | ✓† | ✓* | | ✓ |
@@ -56,3 +56,4 @@ decidirán las policies.
 - Los precios (tarifas) son de lectura pública.
 - `incidents.update` sirve para cambiar el estado de una incidencia; `incidents.respond`, solo para comentar.
 - `payments.create` permite al usuario pagar su propia reserva.
+- `bookings.view` permite al contable ver el detalle de sus propias reservas en "Mis reservas".
