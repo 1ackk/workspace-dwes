@@ -77,6 +77,36 @@ los permisos, y por eso un `delete` que devuelve siempre falso también le afect
 | `create` | Sí | Sí | No | No | Sí |
 | `cancel` | Las suyas | Todas | No | No | Todas |
 
+#### Reservas con recursos de varios espacios
+
+Una reserva puede incluir recursos de espacios con responsables distintos (la relación `Booking` ↔ `Resource` es n:n).
+Así se resuelve hoy su visibilidad:
+
+- **Quién puede verla.** `BookingPolicy::view` (`app/Policies/BookingPolicy.php:16`) exige el permiso `bookings.view` y
+  después una de tres relaciones: acceso completo (administrador o recepción), ser el dueño o gestionar la reserva.
+  `managesBooking` (línea 60) cuenta una reserva como gestionada si **al menos uno** de sus recursos pertenece a un
+  espacio cuyo `manager_id` es el responsable (`whereHas('space', ...)`, línea 64). Lo prueba el test
+  `a booking with one managed resource among several counts as managed` de `BookingPolicyTest`.
+- **Qué datos ve.** La autorización es de la reserva entera, no de cada línea. La única pantalla de detalle,
+  `my-bookings/{booking}` (`MyBookingController::show`, que llama a `Gate::authorize('view', $booking)` y carga
+  `resources.space`), muestra todas las líneas sin filtrar por espacio
+  (`resources/views/my-bookings/show.blade.php:27-35`). Cada responsable con al menos un recurso en la reserva ve lo
+  mismo: la fecha, el estado, el total de la reserva y, de **todas** las líneas, el recurso, el espacio, el inicio, el
+  fin y el `precio_final`, también las de espacios que no gestiona. La vista no muestra quién hizo la reserva.
+- **Qué no ve.** No tiene listado de las reservas de sus recursos: "Mis reservas" (`MyBookingController::index`) parte de
+  `$request->user()->bookings()` y solo enseña las propias, aunque el rol tiene `bookings.view-any`. Al detalle llega
+  solo con la URL. Tampoco ve la factura de la reserva: `InvoicePolicy::view` no incluye al responsable.
+
+**Consultar no implica modificar.** Cada habilidad se decide por separado, y `view` solo da paso a la pantalla de
+detalle, que es de solo lectura:
+
+- **Cancelar:** el responsable no tiene el permiso `bookings.cancel`, así que `BookingPolicy::cancel` le devuelve
+  `false` aunque la reserva sea entera de su espacio, y `cancel` no mira `managesBooking`.
+- **Crear o cambiar reservas:** no tiene `bookings.create`, y no existe ninguna habilidad ni ruta para editar una
+  reserva.
+- **Tocar los recursos de otro espacio:** ver una línea de otro espacio no le da derechos sobre ese recurso.
+  `ResourcePolicy` compara el `manager_id` del espacio de cada recurso, así que solo edita los de sus espacios.
+
 ### ResourcePolicy
 
 | Habilidad | usuario | recepción | responsable de espacio | contable | administrador |
