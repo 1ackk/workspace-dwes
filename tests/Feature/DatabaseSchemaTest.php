@@ -110,7 +110,7 @@ it('seeds a consistent demo coworking without overlapping active bookings', func
     expect(User::count())->toBe(10)
         ->and(Space::count())->toBe(2)
         ->and(Resource::count())->toBe(20)
-        ->and(Booking::count())->toBe(10)
+        ->and(Booking::count())->toBe(14)
         ->and(Invoice::count())->toBe(6)
         ->and(Payment::count())->toBe(4)
         ->and(Incident::count())->toBe(1);
@@ -131,4 +131,29 @@ it('seeds a consistent demo coworking without overlapping active bookings', func
             }
         }
     }
+});
+
+it('seeds four completed bookings of last month without invoice for invoices:generate', function () {
+    $this->seed();
+
+    $lastMonth = now()->subMonthNoOverflow();
+    $billable = Booking::query()
+        ->where('status', BookingStatus::Completed)
+        ->whereNull('invoice_id')
+        ->whereBetween('date', [$lastMonth->copy()->startOfMonth()->toDateString(), $lastMonth->copy()->endOfMonth()->toDateString()])
+        ->get();
+
+    expect($billable)->toHaveCount(4)
+        ->and($billable->pluck('user_id')->unique())->toHaveCount(3)
+        ->and($billable->sum(fn (Booking $booking) => (int) str_replace('.', '', $booking->total)))->toBe(8300);
+});
+
+it('numbers the seeded invoices one after another, so generated ones continue the series', function () {
+    $this->seed();
+
+    $year = now()->year;
+
+    expect(Invoice::query()->orderBy('id')->pluck('number')->all())->toBe(
+        array_map(fn (int $n) => sprintf('FAC-%d-%06d', $year, $n), range(1, 6)),
+    );
 });

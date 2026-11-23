@@ -1,7 +1,7 @@
 # WorkSpace · Comandos Artisan
 
-**Contador del proyecto:** 6 de 7 comandos, 2 de 3 llamados desde el código (`release-unpaid` y
-`complete-past`, desde el panel). Falta un comando, que será el tercero llamado desde el código.
+**Contador del proyecto:** 7 de 7 comandos, 3 de 3 llamados desde el código: `release-unpaid` y
+`complete-past` desde el panel de mantenimiento, e `invoices:generate` desde el panel de contabilidad.
 
 | Firma | Qué hace | Quién lo llama o cuándo | Códigos de salida | Ejemplo |
 |---|---|---|---|---|
@@ -11,6 +11,7 @@
 | `occupancy:report {from} {to} {--space=}` | Por recurso: horas reservadas, horas disponibles y porcentaje de ocupación | A mano, en consola | 0 (también sin recursos); 1 si una fecha no es válida, `to` es anterior a `from` o el espacio no existe | `php artisan occupancy:report 2026-11-01 2026-11-30 --space=1` |
 | `bookings:remind-upcoming [--hours=24] [--dry-run]` | Recuerda al titular las reservas `confirmed` cuya primera franja empieza en `(ahora, ahora + horas]` y las marca con `reminder_sent_at` | Programador, cada hora. No se llama desde el código | 0; 1 si `--hours` no es un entero de 1 a 168 | `php artisan bookings:remind-upcoming --hours=6 --dry-run` |
 | `invoices:send-overdue-reminders [--every-days=7] [--as-of=AAAA-MM-DD] [--dry-run]` | Avisa de las facturas vencidas con saldo que no se avisaron en los últimos N días y las marca con `last_reminded_at` | Programador, a diario a las 09:00 (hora de Madrid). No se llama desde el código | 0; 1 si `--every-days` no es un entero de 1 a 90 o la fecha está mal formada | `php artisan invoices:send-overdue-reminders --dry-run` |
+| `invoices:generate {month} [--user=ID] [--dry-run]` | Crea una factura por usuario con las reservas `completed` sin facturar de un mes ya terminado (ver [facturacion.md](facturacion.md)) | Formulario del panel de contabilidad (`Artisan::call`, solo con el mes) y a mano. No se programa | 0 (también sin nada que facturar); 1 si el mes no es `AAAA-MM`, no ha terminado o `--user` no existe | `php artisan invoices:generate 2026-11 --dry-run` |
 
 ## Los dos que cambian el estado de las reservas
 
@@ -40,6 +41,7 @@ Reglas de los límites:
 | `occupancy:report` | Ninguno | Es un informe de solo lectura. |
 | `bookings:remind-upcoming` | `BookingStartingSoon`, uno por reserva | Solo por las reservas que su UPDATE marcó de verdad; con `--dry-run`, ninguno; la segunda ejecución no repite. Correo síncrono, dentro del comando. |
 | `invoices:send-overdue-reminders` | `InvoiceOverdue`, uno por factura | Solo por las facturas que su UPDATE marcó; con `--dry-run`, ninguno; no se repite hasta pasar `--every-days`. El correo va a la cola `mail`. |
+| `invoices:generate` | Ninguno | Crea facturas sin avisar: el aviso de vencimiento es `invoices:send-overdue-reminders`. |
 
 La tabla completa de eventos, jobs y correos está en [eventos.md](eventos.md).
 

@@ -79,6 +79,9 @@ class CoworkingSeeder extends Seeder
             'valid_until' => now()->addMonth()->toDateString(),
         ]);
 
+        // Números de factura fijos y seguidos (FAC-año-000001…): invoices:generate continúa la serie.
+        $invoiceNumber = fn (int $n): string => sprintf('FAC-%d-%06d', now()->year, $n);
+
         $day = now()->addDay()->startOfDay();
 
         // Reserva multirrecurso confirmada (sala + proyector, misma franja) con factura pendiente.
@@ -90,7 +93,7 @@ class CoworkingSeeder extends Seeder
 
         $pendingInvoice = Invoice::factory()
             ->for($members[0], 'user')
-            ->create(['amount' => $multi->refresh()->total]);
+            ->create(['number' => $invoiceNumber(1), 'amount' => $multi->refresh()->total]);
         $multi->update(['invoice_id' => $pendingInvoice->id]);
 
         // Reserva confirmada con factura pagada y su pago.
@@ -101,7 +104,7 @@ class CoworkingSeeder extends Seeder
 
         $paidInvoice = Invoice::factory()->paid()
             ->for($members[1], 'user')
-            ->create(['amount' => $paidBooking->refresh()->total]);
+            ->create(['number' => $invoiceNumber(2), 'amount' => $paidBooking->refresh()->total]);
         $paidBooking->update(['invoice_id' => $paidInvoice->id]);
         Payment::factory()->create([
             'invoice_id' => $paidInvoice->id,
@@ -123,7 +126,7 @@ class CoworkingSeeder extends Seeder
 
         // Facturas vencidas para el scope overdueInvoices. Cada reserva usa un recurso, un día y
         // una hora propios: el seeder no pasa por el servicio de reservas y nada impediría un solape.
-        $overdueInvoice = function (User $member, string $resourceName, int $daysAgo, int $hour) use ($firstSpace): Invoice {
+        $overdueInvoice = function (User $member, string $resourceName, int $daysAgo, int $hour, int $number) use ($firstSpace, $invoiceNumber): Invoice {
             $start = now()->subDays($daysAgo)->setTime($hour, 0);
             $resource = $firstSpace->resources()->where('name', $resourceName)->firstOrFail();
 
@@ -132,6 +135,7 @@ class CoworkingSeeder extends Seeder
                 ->create(['status' => BookingStatus::Completed, 'expires_at' => null]);
 
             $invoice = Invoice::factory()->overdue()->for($member, 'user')->create([
+                'number' => $invoiceNumber($number),
                 'period_start' => $start->copy()->startOfMonth()->toDateString(),
                 'period_end' => $start->copy()->endOfMonth()->toDateString(),
                 'amount' => $booking->refresh()->total,
@@ -142,24 +146,24 @@ class CoworkingSeeder extends Seeder
         };
 
         // Vencida sin ningún pago: entra por el total.
-        $overdueInvoice($members[4], 'Puesto 2', 10, 9);
+        $overdueInvoice($members[4], 'Puesto 2', 10, 9, 3);
 
         // Vencida con un pago parcial completado: entra por la mitad restante.
-        $partlyPaid = $overdueInvoice($members[2], 'Puesto 3', 12, 11);
+        $partlyPaid = $overdueInvoice($members[2], 'Puesto 3', 12, 11, 4);
         Payment::factory()->create([
             'invoice_id' => $partlyPaid->id,
             'amount' => round((float) $partlyPaid->amount / 2, 2),
         ]);
 
         // Vencida con un pago fallido: el pago no cuenta y entra por el total.
-        $failedPayment = $overdueInvoice($members[3], 'Puesto 4', 14, 14);
+        $failedPayment = $overdueInvoice($members[3], 'Puesto 4', 14, 14, 5);
         Payment::factory()->failed()->create([
             'invoice_id' => $failedPayment->id,
             'amount' => $failedPayment->amount,
         ]);
 
         // Caso límite: pagada del todo pero aún marcada como pendiente. No entra (saldo 0).
-        $fullyPaid = $overdueInvoice($members[4], 'Sala 2', 16, 16);
+        $fullyPaid = $overdueInvoice($members[4], 'Sala 2', 16, 16, 6);
         Payment::factory()->create([
             'invoice_id' => $fullyPaid->id,
             'amount' => $fullyPaid->amount,
@@ -184,6 +188,29 @@ class CoworkingSeeder extends Seeder
                 $finishedDay->copy()->setTime(17, 0),
             )
             ->create();
+
+        // Reservas completadas y sin factura del mes anterior, para invoices:generate. Van en Planta
+        // Alta, donde no hay ninguna otra reserva sembrada, y en días que todo mes tiene (5, 12 y 19):
+        // no pueden solapar con nada. Dan 3 facturas: usuario1 (28,50 €), usuario2 (50,00 €) y
+        // usuario4 (4,50 €), 83,00 € en total.
+        $secondSpace = $spaces->last();
+        $lastMonth = now()->subMonthNoOverflow()->startOfMonth();
+        $billable = function (User $member, string $resourceName, int $dayOfMonth, string $from, string $to) use ($secondSpace, $lastMonth): void {
+            $date = $lastMonth->copy()->setDay($dayOfMonth);
+
+            Booking::factory()->for($member, 'user')
+                ->withSlot(
+                    $secondSpace->resources()->where('name', $resourceName)->firstOrFail(),
+                    $date->copy()->setTimeFromTimeString($from),
+                    $date->copy()->setTimeFromTimeString($to),
+                )
+                ->create(['status' => BookingStatus::Completed, 'expires_at' => null]);
+        };
+
+        $billable($members[0], 'Sala 1', 5, '10:00', '12:00');
+        $billable($members[0], 'Puesto 1', 12, '09:00', '10:30');
+        $billable($members[1], 'Sala de reuniones', 12, '16:00', '18:00');
+        $billable($members[3], 'Puesto 2', 19, '11:00', '12:30');
 
         Incident::factory()->create([
             'user_id' => $members[0]->id,

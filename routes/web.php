@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\RoleName;
+use App\Http\Controllers\Accounting\InvoiceController as AccountingInvoiceController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -57,9 +58,14 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:'.RoleName::Admin->value)
         ->name('admin.maintenance.run');
 
-    Route::view('accounting', 'accounting.index')
-        ->middleware('role:'.RoleName::Accountant->value)
-        ->name('accounting.index');
+    // Contabilidad: el grupo filtra por rol y InvoicePolicy decide (viewAny y create)
+    Route::middleware('role:'.RoleName::Accountant->value)
+        ->prefix('accounting')
+        ->name('accounting.')
+        ->group(function () {
+            Route::get('/', [AccountingInvoiceController::class, 'index'])->name('index');
+            Route::post('invoices/generate', [AccountingInvoiceController::class, 'store'])->name('invoices.generate');
+        });
 
     Route::view('reception', 'reception.index')
         ->middleware('role:'.RoleName::Reception->value)

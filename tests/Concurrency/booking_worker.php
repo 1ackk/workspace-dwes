@@ -16,6 +16,7 @@ use App\Models\Booking;
 use App\Models\Resource;
 use App\Models\User;
 use App\Services\Booking\BookingService;
+use App\Services\Invoicing\InvoiceGenerator;
 use App\Services\Pricing\Slot;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\QueryException;
@@ -114,6 +115,18 @@ function confirmWithService(int $bookingId): string
     return 'confirmed';
 }
 
+/**
+ * Factura el mes indicado. Devuelve cuántas facturas creó este proceso y sus avisos.
+ *
+ * @return array{outcome: string, invoices: int, warnings: list<string>}
+ */
+function generateInvoices(string $month): array
+{
+    $batch = app(InvoiceGenerator::class)->generate(Carbon::parse($month.'-01'));
+
+    return ['outcome' => 'generated', 'invoices' => $batch->invoices(), 'warnings' => $batch->warnings];
+}
+
 $job = json_decode(base64_decode($argv[1]), true);
 
 if (config('database.connections.'.config('database.default').'.database') !== 'workspace_test') {
@@ -137,6 +150,10 @@ while (microtime(true) < $startAt) {
 }
 
 try {
+    if ($job['mode'] === 'generate') {
+        respond([...generateInvoices($job['month']), 'late' => $late]);
+    }
+
     $outcome = match ($job['mode']) {
         'service' => createWithService($user, $slots),
         'naive' => createNaively($user, $slots),

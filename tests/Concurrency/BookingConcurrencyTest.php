@@ -3,7 +3,7 @@
 /**
  * Prueba de concurrencia real: procesos PHP simultáneos contra MySQL.
  *
- * Con SQLite se omite. En PowerShell, desde proyecto/ (ver docs/reservas.md):
+ * Con SQLite se omite. En PowerShell, desde la raíz del repositorio (ver docs/reservas.md):
  *
  * $env:DB_CONNECTION='mysql'; $env:DB_HOST='127.0.0.1'; $env:DB_PORT='3306'; $env:DB_DATABASE='workspace_test'; $env:DB_USERNAME='root'; $env:DB_PASSWORD=''; php artisan test --group=concurrency; Remove-Item Env:DB_*
  *
@@ -12,6 +12,7 @@
 
 use App\Enums\BookingStatus;
 use App\Models\Booking;
+use App\Models\Invoice;
 use App\Models\Resource;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -56,7 +57,7 @@ function migrateConcurrencyDatabaseOnce(): void
 
 function clearConcurrencyData(): void
 {
-    foreach (['jobs', 'booking_resource', 'bookings', 'resources', 'spaces', 'users'] as $table) {
+    foreach (['jobs', 'payments', 'booking_resource', 'bookings', 'invoices', 'resources', 'spaces', 'users'] as $table) {
         DB::table($table)->delete();
     }
 }
@@ -345,6 +346,54 @@ test('two simultaneous confirmations of the same booking: one wins and the event
             ->and($booking->fresh()->status)->toBe(BookingStatus::Confirmed)
             // Un solo evento: el listener encola un único job de correo en workspace_test.
             ->and(DB::table('jobs')->where('queue', 'mail')->where('payload', 'like', '%SendBookingConfirmedMailJob%')->count())->toBe(1);
+    }
+});
+
+test('two simultaneous runs of invoices:generate bill every booking exactly once, without deadlocks', function () {
+    $deadlocksBefore = usesInnodb() ? deadlockCount() : 0;
+    $month = now()->subMonthNoOverflow()->startOfMonth();
+
+    foreach (range(1, CONCURRENCY_ROUNDS) as $round) {
+        DB::table('bookings')->delete();
+        DB::table('invoices')->delete();
+
+        // Tres usuarios con varias reservas completadas y sin factura del mes anterior.
+        $users = User::factory()->count(3)->create();
+        foreach ($users as $index => $user) {
+            foreach (range(1, $index + 2) as $day) {
+                Booking::factory()->for($user, 'user')->create([
+                    'status' => BookingStatus::Completed,
+                    'expires_at' => null,
+                    'date' => $month->copy()->addDays($day)->toDateString(),
+                    'total' => sprintf('%d.%02d', 10 + $day, $index * 7),
+                ]);
+            }
+        }
+
+        $job = ['mode' => 'generate', 'user_id' => $users->first()->id, 'slots' => [], 'month' => $month->format('Y-m')];
+
+        $results = runWorkers([$job, $job]);
+
+        expectNobodyWasLate($results);
+        expect(outcomesOf($results))->toEqual(['generated' => 2], json_encode($results))
+            // Entre los dos procesos, 3 facturas: una por usuario, ninguna duplicada.
+            ->and(array_sum(array_column($results, 'invoices')))->toBe(3, json_encode($results))
+            ->and(Invoice::count())->toBe(3)
+            ->and(Invoice::query()->distinct()->count('user_id'))->toBe(3)
+            ->and(Invoice::query()->distinct()->count('number'))->toBe(3)
+            ->and(Booking::query()->whereNull('invoice_id')->count())->toBe(0);
+
+        // Cada factura suma exactamente sus reservas.
+        Invoice::query()->with('bookings')->get()->each(function (Invoice $invoice): void {
+            $cents = $invoice->bookings->sum(fn (Booking $booking) => (int) str_replace('.', '', $booking->total));
+
+            expect((int) str_replace('.', '', $invoice->amount))->toBe($cents)
+                ->and($invoice->bookings->pluck('user_id')->unique()->all())->toBe([$invoice->user_id]);
+        });
+    }
+
+    if (usesInnodb()) {
+        expect(deadlockCount())->toBe($deadlocksBefore);
     }
 });
 

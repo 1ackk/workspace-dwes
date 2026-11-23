@@ -157,6 +157,17 @@ Dónde se aplica: el detalle `invoices/{invoice}` (`InvoiceController::show`) ll
 así que una factura ajena da 403. El saldo pendiente que muestra sale de `Invoice::balanceQuery()`, el mismo cálculo que
 usa el scope `overdueInvoices`.
 
+**Rutas de contabilidad** (grupo `accounting`, middleware `role:contable`):
+
+| Ruta | Nombre | Qué comprueba |
+|---|---|---|
+| `GET accounting` | `accounting.index` | `Gate::authorize('viewAny', Invoice::class)`: listado de facturas |
+| `POST accounting/invoices/generate` | `accounting.invoices.generate` | `GenerateInvoicesRequest::authorize()` con `can('create', Invoice::class)`: lanza `invoices:generate` |
+
+El grupo solo deja entrar al contable; dentro, la policy decide. El administrador tiene los permisos
+`invoices.view-any` e `invoices.create`, pero no entra en esta zona: el middleware de rol le da un
+403 antes, igual que en los demás paneles por rol. Reglas de generación en [facturacion.md](facturacion.md).
+
 ### SpacePolicy
 
 | Habilidad | visitante | usuario | recepción | responsable de espacio | contable | administrador |
