@@ -57,6 +57,11 @@ estado siga siendo `pending_payment`: la regla está en `Booking::blocking()` y 
 comando de limpieza haya corrido. Los comandos que cambian estos estados están en
 [comandos.md](comandos.md).
 
+`releaseUnpaid` lanza `BookingExpired` por cada reserva que **de verdad** pasó a caducada (las filas
+que cambió su UPDATE condicional, no las candidatas), y el titular recibe un correo avisando de que la
+franja ha quedado libre. Ni la segunda ejecución ni `--dry-run` notifican nada, y un fallo al avisar
+de una reserva no impide liberar las demás. Detalles en [eventos.md](eventos.md).
+
 ## Confirmar una reserva (pago simulado)
 
 `confirm(Booking $booking): Booking` es lo que ocurre cuando el pago ha ido bien: la reserva pasa de
@@ -89,6 +94,9 @@ En la web, el detalle de una reserva pendiente muestra el botón **Pagar (simula
 
 `cancel(Booking $booking): Booking` bloquea la fila de la reserva, pregunta al scope
 `Booking::cancellable` y, si puede, la deja en `cancelled` con `cancelled_at`. La franja queda libre.
+Después lanza `BookingCancelled`, que espera al commit de la transacción: el titular recibe un correo
+con el resumen de la reserva cancelada. Si la cancelación no se hace (fuera de plazo, ya cancelada,
+caducada o completada), no se lanza nada.
 
 Una reserva es cancelable si cumple todo esto:
 

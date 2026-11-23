@@ -28,6 +28,17 @@ Reglas de los límites:
   que termina justo ahora cuenta como terminada.
 - Las reservas borradas lógicamente no se tocan.
 
+## Qué comandos lanzan eventos
+
+| Comando | Evento | Cuándo |
+|---|---|---|
+| `bookings:release-unpaid` | `BookingExpired`, uno por reserva | Solo por las reservas que su UPDATE cambió de verdad. Con `--dry-run`, ninguno. Una segunda ejecución no cambia nada y no lanza nada. El correo se envía de forma síncrona dentro del comando, y un fallo al enviarlo se registra sin cortar el resto. Desde el panel pasa lo mismo, porque el botón ejecuta este comando. |
+| `bookings:complete-past` | Ninguno | No hay correo de "reserva completada" en el plan del sprint. |
+| `invoices:list-overdue` | Ninguno | Es un informe de solo lectura. El aviso de factura vencida será otro comando, `invoices:notify-overdue`. |
+| `occupancy:report` | Ninguno | Es un informe de solo lectura. |
+
+La tabla completa de eventos, jobs y correos está en [eventos.md](eventos.md).
+
 ## Panel de mantenimiento
 
 La vista de administración tiene dos botones, cada uno un formulario `POST` con `@csrf` a

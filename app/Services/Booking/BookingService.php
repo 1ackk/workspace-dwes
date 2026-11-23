@@ -3,7 +3,9 @@
 namespace App\Services\Booking;
 
 use App\Enums\BookingStatus;
+use App\Events\BookingCancelled;
 use App\Events\BookingConfirmed;
+use App\Events\BookingExpired;
 use App\Exceptions\BookingNotCancellableException;
 use App\Exceptions\BookingNotConfirmableException;
 use App\Exceptions\InvalidBookingRequestException;
@@ -20,6 +22,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class BookingService
 {
@@ -70,6 +73,10 @@ class BookingService
                 'status' => BookingStatus::Cancelled,
                 'cancelled_at' => now(),
             ]);
+
+            // Solo se llega aquí si la cancelación se ha hecho. El evento espera al commit de esta
+            // transacción: si algo la revierte, no se notifica nada.
+            event(new BookingCancelled($locked));
 
             return $locked;
         }, self::TRANSACTION_ATTEMPTS);
@@ -134,10 +141,25 @@ class BookingService
     /**
      * Marca como caducadas las reservas pendientes cuya retención ya venció.
      * Devuelve cuántas han cambiado de verdad.
+     *
+     * Lanza BookingExpired solo por las reservas que su UPDATE cambió, no por las candidatas: una
+     * que se confirmó entre la lectura y el UPDATE no se notifica. El aviso es secundario: el
+     * cambio de estado ya está guardado, así que un fallo al notificar una reserva se registra y
+     * no impide liberar ni avisar a las demás.
      */
     public function releaseUnpaid(CarbonInterface $now): int
     {
-        return $this->moveEach(fn () => $this->unpaidAt($now), BookingStatus::Expired);
+        $expiredIds = $this->moveEach(fn () => $this->unpaidAt($now), BookingStatus::Expired);
+
+        foreach ($expiredIds as $id) {
+            try {
+                event(new BookingExpired(Booking::query()->findOrFail($id)));
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        return count($expiredIds);
     }
 
     public function countUnpaid(CarbonInterface $now): int
@@ -151,7 +173,7 @@ class BookingService
      */
     public function completePast(CarbonInterface $now): int
     {
-        return $this->moveEach(fn () => $this->finishedAt($now), BookingStatus::Completed);
+        return count($this->moveEach(fn () => $this->finishedAt($now), BookingStatus::Completed));
     }
 
     public function countPast(CarbonInterface $now): int
@@ -184,14 +206,19 @@ class BookingService
      * Cada UPDATE repite la regla completa: si la reserva cambió después de leer los ids
      * (por ejemplo, se confirmó el pago), la fila ya no cumple la condición y no se pisa.
      *
+     * Devuelve los ids que el UPDATE cambió de verdad (las filas afectadas), no las candidatas.
+     *
      * @param  Closure(): Builder<Booking>  $candidates
+     * @return list<int>
      */
-    private function moveEach(Closure $candidates, BookingStatus $status): int
+    private function moveEach(Closure $candidates, BookingStatus $status): array
     {
-        $changed = 0;
+        $changed = [];
 
         foreach ($candidates()->pluck('id') as $id) {
-            $changed += $candidates()->whereKey($id)->update(['status' => $status]);
+            if ($candidates()->whereKey($id)->update(['status' => $status]) === 1) {
+                $changed[] = (int) $id;
+            }
         }
 
         return $changed;

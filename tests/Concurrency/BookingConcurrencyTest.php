@@ -307,6 +307,7 @@ test('two simultaneous cancellations of the same booking: one wins and the other
     $resource = Resource::factory()->create();
 
     foreach (range(1, CONCURRENCY_ROUNDS) as $round) {
+        DB::table('jobs')->delete();
         [$start, $end] = concurrencySlot($round);
         $booking = Booking::factory()->confirmed()
             ->withSlot($resource, Carbon::parse($start), Carbon::parse($end))
@@ -319,7 +320,9 @@ test('two simultaneous cancellations of the same booking: one wins and the other
         expect(outcomesOf($results))->toEqual(['cancelled' => 1, 'not_cancellable' => 1], json_encode($results))
             ->and(collect($results)->firstWhere('outcome', 'not_cancellable')['message'])->toBe(__('La reserva ya está cancelada.'))
             ->and($booking->fresh()->status)->toBe(BookingStatus::Cancelled)
-            ->and($booking->fresh()->cancelled_at)->not->toBeNull();
+            ->and($booking->fresh()->cancelled_at)->not->toBeNull()
+            // Un solo evento: el ganador encola un único job de correo de cancelación.
+            ->and(DB::table('jobs')->where('queue', 'mail')->where('payload', 'like', '%SendBookingCancelledMailJob%')->count())->toBe(1);
     }
 });
 

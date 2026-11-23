@@ -9,9 +9,9 @@ correo.
 | Estado | Evento | Lo lanza | Listener | Job | ¿Cola? | Correo |
 |---|---|---|---|---|---|---|
 | **Hecho** | `BookingConfirmed` | `BookingService::confirm()`, desde la web (pago simulado) | `SendBookingConfirmedMail` | `SendBookingConfirmedMailJob` | Sí, `mail` | `BookingConfirmedMail` |
-| Pendiente | `BookingCancelled` | `BookingService::cancel()`, desde la web | `SendBookingCancelledMail` | `SendBookingCancelledMailJob` | Sí, `mail` | `BookingCancelledMail` |
+| **Hecho** | `BookingCancelled` | `BookingService::cancel()`, desde la web | `SendBookingCancelledMail` | `SendBookingCancelledMailJob` | Sí, `mail` | `BookingCancelledMail` |
 | Pendiente | `InvoiceOverdue` | Comando nuevo `invoices:notify-overdue` (diario) sobre el scope `overdueInvoices` | `SendInvoiceOverdueMail` | `SendInvoiceOverdueMailJob` | Sí, `mail` | `InvoiceOverdueMail` |
-| Pendiente | `BookingExpired` | `BookingService::releaseUnpaid()`, desde `bookings:release-unpaid` (cada minuto) | `SendBookingExpiredMail` | `SendBookingExpiredMailJob` | No | `BookingExpiredMail` |
+| **Hecho** | `BookingExpired` | `BookingService::releaseUnpaid()`, desde `bookings:release-unpaid` (cada minuto) | `SendBookingExpiredMail` | `SendBookingExpiredMailJob` | No | `BookingExpiredMail` |
 | Pendiente | `BookingStartingSoon` | Comando nuevo `bookings:send-reminders` (cada hora) | `SendBookingReminderMail` | `SendBookingReminderMailJob` | No | `BookingReminderMail` |
 
 Por qué cada uno va o no a la cola:
@@ -54,6 +54,42 @@ Si el job llegara a la cola antes del commit, un worker rápido podría leer la 
 pendiente (o una confirmación que al final se revierte) y el correo diría algo falso. Por eso el evento
 espera al commit y el job también. Lo prueban `BookingConfirmationTest` ("after commit") y el test de
 concurrencia de dos confirmaciones simultáneas, que comprueba que se encola un solo job.
+
+## Cancelación y caducidad
+
+Siguen el mismo patrón que la confirmación: evento con `ShouldDispatchAfterCommit`, listener que solo
+delega, job con `afterCommit()`, `$tries`, `$backoff` y `failed()`, y correo Markdown en español. Los
+tres correos comparten el resumen de la reserva (recursos con su espacio, franjas, precios y total) en
+el partial `resources/views/mail/bookings/_summary.blade.php`, incluido con `@include`. Es un partial y
+no un componente porque en Markdown la sangría importa y la tabla se rompería dentro de un componente.
+
+**`BookingCancelled` (en cola).** `BookingService::cancel` lo lanza dentro de su transacción, justo
+después de guardar la cancelación: si `cancel` lanza `BookingNotCancellableException` (fuera de plazo,
+ya cancelada, caducada o completada) no se llega a lanzar, y si la transacción se revierte se descarta.
+El job solo envía si la reserva sigue cancelada y su titular existe.
+
+**`BookingExpired` (síncrono).** `BookingService::releaseUnpaid` lo lanza por cada reserva que su
+UPDATE condicional cambió de verdad (`moveEach` devuelve esos ids, no los de las candidatas). Por eso:
+
+- Una pendiente que se confirmó entre la lectura y el UPDATE no se notifica.
+- La segunda ejecución no cambia nada y no notifica nada.
+- `--dry-run` solo cuenta (`countUnpaid`) y no lanza eventos.
+
+El listener ejecuta el job con `dispatchSync`, dentro del propio comando. El job implementa
+`ShouldQueue` para que Laravel lo pase por su conexión `sync`, que respeta `afterCommit()` y llama a
+`failed()` si el envío falla; **en síncrono no hay reintentos**: `$tries` y `$backoff` se mantienen por
+coherencia con los otros jobs, pero Laravel lo ejecuta una sola vez.
+
+**Un fallo al avisar no corta el lote.** El cambio de estado ya está guardado cuando se notifica, así
+que `releaseUnpaid` envuelve cada aviso en un `try/catch` que lo registra con `report()` y sigue con
+la siguiente reserva. Un titular borrado lógicamente ni siquiera llega a fallar: `$booking->user` es
+`null` y el job no envía nada.
+
+**Liberar y confirmar a la vez** no tiene prueba en MySQL a propósito: las dos condiciones se excluyen
+(liberar exige `expires_at < ahora`; confirmar, `expires_at > ahora`), así que solo podrían ganar las
+dos con relojes distintos en cada proceso, un instante que no se puede provocar de forma fiable. El
+caso que sí importa, una reserva que cambia entre la lectura y el UPDATE, se prueba de forma
+determinista en SQLite (`BookingExpiredNotificationTest`, con `DB::listen`).
 
 ## Configuración
 
