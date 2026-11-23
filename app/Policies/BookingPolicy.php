@@ -30,6 +30,15 @@ class BookingPolicy
     }
 
     /**
+     * Quién puede confirmar (pagar) una reserva: solo su dueño, ni siquiera el administrador
+     * paga por otro. Cuándo se puede lo decide BookingService::confirm.
+     */
+    public function confirm(User $user, Booking $booking): bool
+    {
+        return $user->can('bookings.confirm') && $this->isOwner($user, $booking);
+    }
+
+    /**
      * Quién puede cancelar. Cuándo se puede lo decide BookingService con el scope cancellable.
      */
     public function cancel(User $user, Booking $booking): bool

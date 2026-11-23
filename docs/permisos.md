@@ -31,6 +31,7 @@ deciden las cinco policies de `app/Policies`.
 | `bookings.view-any` | | ✓† | ✓* | | ✓ |
 | `bookings.view` | ✓* | ✓† | ✓* | ✓*† | ✓ |
 | `bookings.create` | ✓ | ✓† | | | ✓ |
+| `bookings.confirm` | ✓* | ✓* | | | ✓* |
 | `bookings.cancel` | ✓* | ✓† | | | ✓ |
 | `incidents.view-any` | | ✓† | ✓* | | ✓ |
 | `incidents.view` | ✓* | ✓† | ✓* | | ✓ |
@@ -76,6 +77,11 @@ los permisos, y por eso un `delete` que devuelve siempre falso también le afect
 | `view` | Las suyas | Todas | Las suyas y las de sus recursos | Las suyas | Todas |
 | `create` | Sí | Sí | No | No | Sí |
 | `cancel` | Las suyas | Todas | No | No | Todas |
+| `confirm` (pagar) | Las suyas | Las suyas | No | No | Las suyas |
+
+`confirm` exige el permiso `bookings.confirm` y ser el dueño: nadie paga la reserva de otro, ni recepción ni el
+administrador. Se aplica en `POST my-bookings/{booking}/confirm` con el middleware `can:confirm,booking`. Si la
+retención todavía está vigente lo decide `BookingService::confirm` (ver [reservas.md](reservas.md)).
 
 #### Reservas con recursos de varios espacios
 

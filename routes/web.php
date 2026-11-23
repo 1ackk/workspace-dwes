@@ -34,6 +34,11 @@ Route::middleware('auth')->group(function () {
     Route::get('my-bookings', [MyBookingController::class, 'index'])->name('my-bookings.index');
     Route::get('my-bookings/{booking}', [MyBookingController::class, 'show'])->name('my-bookings.show');
 
+    // Pago simulado: BookingPolicy::confirm decide con el middleware can
+    Route::post('my-bookings/{booking}/confirm', [MyBookingController::class, 'confirm'])
+        ->middleware('can:confirm,booking')
+        ->name('my-bookings.confirm');
+
     // Detalle de una factura: InvoicePolicy decide con Gate::authorize en el controlador
     Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
 

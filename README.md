@@ -219,7 +219,8 @@ Los escenarios y cómo se consigue la simultaneidad están en [`docs/reservas.md
 |---|---|
 | [`docs/modelo-datos.md`](docs/modelo-datos.md) | Modelos, relaciones y decisiones del esquema |
 | [`docs/permisos.md`](docs/permisos.md) | Roles, matriz de permisos y las cinco policies |
-| [`docs/reservas.md`](docs/reservas.md) | Disponibilidad, bloqueo, cancelación y prueba de concurrencia |
+| [`docs/reservas.md`](docs/reservas.md) | Disponibilidad, bloqueo, confirmación, cancelación y prueba de concurrencia |
+| [`docs/eventos.md`](docs/eventos.md) | Eventos, listeners, jobs, colas y correos; cómo arrancar el worker |
 | [`docs/scopes.md`](docs/scopes.md) | Los siete scopes |
 | [`docs/comandos.md`](docs/comandos.md) | Los comandos Artisan y su programación |
 | [`docs/sprint-4.md`](docs/sprint-4.md) | Resumen del sprint 4 y guion de demostración |

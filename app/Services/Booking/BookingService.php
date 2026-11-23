@@ -3,7 +3,9 @@
 namespace App\Services\Booking;
 
 use App\Enums\BookingStatus;
+use App\Events\BookingConfirmed;
 use App\Exceptions\BookingNotCancellableException;
+use App\Exceptions\BookingNotConfirmableException;
 use App\Exceptions\InvalidBookingRequestException;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Booking;
@@ -71,6 +73,62 @@ class BookingService
 
             return $locked;
         }, self::TRANSACTION_ATTEMPTS);
+    }
+
+    /**
+     * Confirma una reserva pendiente de pago: es lo que ocurre cuando el pago ha ido bien.
+     *
+     * Hoy el pago es simulado y no crea filas en payments (esa tabla exige una factura). Una
+     * pasarela real (A3) llamará a este mismo método cuando reciba la confirmación del cobro.
+     *
+     * Quién puede confirmar lo decide BookingPolicy::confirm; cuándo, este método. Solo se
+     * confirma si la retención sigue vigente: una pendiente vencida ya no ocupa su franja y otro
+     * usuario puede haberla reservado, aunque el comando de limpieza no haya corrido todavía.
+     *
+     * Un único UPDATE condicional, como en moveEach: si releaseUnpaid u otra confirmación cambian
+     * la reserva a la vez, solo uno de los dos UPDATE encuentra la fila y el otro no la pisa.
+     */
+    public function confirm(Booking $booking): Booking
+    {
+        $now = now();
+
+        $changed = Booking::query()
+            ->whereKey($booking->id)
+            ->where('status', BookingStatus::PendingPayment)
+            ->where('expires_at', '>', $now)
+            ->update(['status' => BookingStatus::Confirmed, 'expires_at' => null]);
+
+        if ($changed === 0) {
+            throw $this->whyNotConfirmable($booking);
+        }
+
+        $confirmed = Booking::query()->findOrFail($booking->id);
+
+        // BookingConfirmed espera al commit si confirm se llama dentro de una transacción.
+        event(new BookingConfirmed($confirmed));
+
+        return $confirmed;
+    }
+
+    /**
+     * Solo explica el motivo: la decisión ya la ha tomado el UPDATE condicional de confirm.
+     */
+    private function whyNotConfirmable(Booking $booking): BookingNotConfirmableException
+    {
+        $current = Booking::query()->find($booking->id);
+
+        if ($current === null) {
+            return BookingNotConfirmableException::notFound();
+        }
+
+        return match ($current->status) {
+            BookingStatus::Confirmed => BookingNotConfirmableException::alreadyConfirmed(),
+            BookingStatus::Cancelled => BookingNotConfirmableException::cancelled(),
+            BookingStatus::Expired => BookingNotConfirmableException::expired(),
+            BookingStatus::Completed => BookingNotConfirmableException::completed(),
+            // Sigue pendiente, así que su retención ya venció (o no tenía): llegó tarde.
+            BookingStatus::PendingPayment => BookingNotConfirmableException::holdExpired(),
+        };
     }
 
     /**

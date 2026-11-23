@@ -56,7 +56,7 @@ function migrateConcurrencyDatabaseOnce(): void
 
 function clearConcurrencyData(): void
 {
-    foreach (['booking_resource', 'bookings', 'resources', 'spaces', 'users'] as $table) {
+    foreach (['jobs', 'booking_resource', 'bookings', 'resources', 'spaces', 'users'] as $table) {
         DB::table($table)->delete();
     }
 }
@@ -76,6 +76,10 @@ function workerEnvironment(): array
         'DB_DATABASE' => $connection['database'],
         'DB_USERNAME' => $connection['username'],
         'DB_PASSWORD' => (string) $connection['password'],
+        // Fijados aquí para no depender del .env: los jobs quedan en la tabla jobs de
+        // workspace_test (así se cuentan los eventos) y ningún correo sale del proceso.
+        'QUEUE_CONNECTION' => 'database',
+        'MAIL_MAILER' => 'array',
     ];
 }
 
@@ -316,6 +320,28 @@ test('two simultaneous cancellations of the same booking: one wins and the other
             ->and(collect($results)->firstWhere('outcome', 'not_cancellable')['message'])->toBe(__('La reserva ya está cancelada.'))
             ->and($booking->fresh()->status)->toBe(BookingStatus::Cancelled)
             ->and($booking->fresh()->cancelled_at)->not->toBeNull();
+    }
+});
+
+test('two simultaneous confirmations of the same booking: one wins and the event is dispatched once', function () {
+    $resource = Resource::factory()->create();
+
+    foreach (range(1, CONCURRENCY_ROUNDS) as $round) {
+        DB::table('jobs')->delete();
+        [$start, $end] = concurrencySlot($round);
+        $booking = Booking::factory()
+            ->withSlot($resource, Carbon::parse($start), Carbon::parse($end))
+            ->create(['expires_at' => now()->addMinutes(15)]);
+        $job = ['mode' => 'confirm', 'user_id' => $booking->user_id, 'slots' => [], 'booking_id' => $booking->id];
+
+        $results = runWorkers([$job, $job]);
+
+        expectNobodyWasLate($results);
+        expect(outcomesOf($results))->toEqual(['confirmed' => 1, 'not_confirmable' => 1], json_encode($results))
+            ->and(collect($results)->firstWhere('outcome', 'not_confirmable')['message'])->toBe(__('La reserva ya está confirmada.'))
+            ->and($booking->fresh()->status)->toBe(BookingStatus::Confirmed)
+            // Un solo evento: el listener encola un único job de correo en workspace_test.
+            ->and(DB::table('jobs')->where('queue', 'mail')->where('payload', 'like', '%SendBookingConfirmedMailJob%')->count())->toBe(1);
     }
 });
 

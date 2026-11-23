@@ -17,7 +17,7 @@ class RoleSeeder extends Seeder
     public const array PERMISSIONS = [
         'spaces.view-any', 'spaces.create', 'spaces.update', 'spaces.delete',
         'resources.view-any', 'resources.create', 'resources.update', 'resources.delete',
-        'bookings.view-any', 'bookings.view', 'bookings.create', 'bookings.cancel',
+        'bookings.view-any', 'bookings.view', 'bookings.create', 'bookings.confirm', 'bookings.cancel',
         'incidents.view-any', 'incidents.view', 'incidents.create', 'incidents.update', 'incidents.respond',
         'invoices.view-any', 'invoices.view', 'invoices.create', 'invoices.void',
         'payments.view-any', 'payments.view', 'payments.create',
@@ -31,7 +31,7 @@ class RoleSeeder extends Seeder
      */
     private const array ROLE_PERMISSIONS = [
         RoleName::Member->value => [
-            'bookings.view', 'bookings.create', 'bookings.cancel',
+            'bookings.view', 'bookings.create', 'bookings.confirm', 'bookings.cancel',
             'incidents.view', 'incidents.create', 'incidents.respond',
             'invoices.view',
             'payments.view', 'payments.create',
@@ -40,7 +40,7 @@ class RoleSeeder extends Seeder
         RoleName::Reception->value => [
             'spaces.view-any',
             'resources.view-any',
-            'bookings.view-any', 'bookings.view', 'bookings.create', 'bookings.cancel',
+            'bookings.view-any', 'bookings.view', 'bookings.create', 'bookings.confirm', 'bookings.cancel',
             'incidents.view-any', 'incidents.view', 'incidents.create', 'incidents.respond',
             'tariffs.view-any',
             'users.view-any',

@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\BookingNotConfirmableException;
 use App\Http\Requests\FilterMyBookingsRequest;
 use App\Models\Booking;
+use App\Services\Booking\BookingService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -30,5 +33,21 @@ class MyBookingController extends Controller
         $booking->load(['resources.space', 'invoice']);
 
         return view('my-bookings.show', ['booking' => $booking]);
+    }
+
+    /**
+     * Pago simulado: confirma la reserva. Quién puede lo decide la ruta (can:confirm,booking);
+     * si todavía se puede, BookingService::confirm.
+     */
+    public function confirm(Booking $booking, BookingService $bookings): RedirectResponse
+    {
+        try {
+            $bookings->confirm($booking);
+        } catch (BookingNotConfirmableException $exception) {
+            return to_route('my-bookings.show', $booking)->with('error', $exception->getMessage());
+        }
+
+        return to_route('my-bookings.show', $booking)
+            ->with('status', __('Pago recibido: tu reserva está confirmada. Te hemos enviado un correo con el resumen.'));
     }
 }

@@ -63,7 +63,32 @@ test('applies each role to own, managed and unrelated bookings', function (
     'cancel responsable' => ['cancel', RoleName::SpaceManager, false, false, false],
     'cancel contable' => ['cancel', RoleName::Accountant, false, false, false],
     'cancel administrador' => ['cancel', RoleName::Admin, true, true, true],
+    'confirm usuario' => ['confirm', RoleName::Member, true, false, false],
+    'confirm recepción' => ['confirm', RoleName::Reception, true, false, false],
+    'confirm responsable' => ['confirm', RoleName::SpaceManager, false, false, false],
+    'confirm contable' => ['confirm', RoleName::Accountant, false, false, false],
+    'confirm administrador' => ['confirm', RoleName::Admin, true, false, false],
 ]);
+
+test('only the owner can confirm, never on behalf of someone else', function (RoleName $role) {
+    $owner = userWithRole(RoleName::Member);
+    $booking = Booking::factory()->for($owner, 'user')->create();
+
+    expect($owner->can('confirm', $booking))->toBeTrue()
+        ->and(userWithRole($role)->can('confirm', $booking))->toBeFalse();
+})->with([
+    'otro usuario' => RoleName::Member,
+    'recepción' => RoleName::Reception,
+    'responsable' => RoleName::SpaceManager,
+    'contable' => RoleName::Accountant,
+    'administrador' => RoleName::Admin,
+]);
+
+test('a user without the confirm permission cannot confirm even their own booking', function () {
+    $user = User::factory()->create();
+
+    expect($user->can('confirm', Booking::factory()->for($user, 'user')->create()))->toBeFalse();
+});
 
 test('a booking with one managed resource among several counts as managed', function () {
     $manager = userWithRole(RoleName::SpaceManager);

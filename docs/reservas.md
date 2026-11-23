@@ -1,4 +1,4 @@
-# WorkSpace · Reservas: creación, retención y cancelación
+# WorkSpace · Reservas: creación, retención, confirmación y cancelación
 
 Todo lo que cambia el estado de una reserva pasa por `App\Services\Booking\BookingService`. Los
 precios los calcula `App\Services\Pricing\PriceCalculator` y la disponibilidad la decide el scope
@@ -57,6 +57,34 @@ estado siga siendo `pending_payment`: la regla está en `Booking::blocking()` y 
 comando de limpieza haya corrido. Los comandos que cambian estos estados están en
 [comandos.md](comandos.md).
 
+## Confirmar una reserva (pago simulado)
+
+`confirm(Booking $booking): Booking` es lo que ocurre cuando el pago ha ido bien: la reserva pasa de
+`pending_payment` a `confirmed` y su `expires_at` queda en `null`.
+
+- **Pago simulado.** No se crean filas en `payments` (esa tabla exige una factura). Es una decisión
+  del proyecto: una pasarela real (A3, por ejemplo PayPal) llamará a este mismo método al recibir la
+  confirmación del cobro, así que el resto del flujo no cambia.
+- **Solo con la retención vigente** (`expires_at > ahora`, con `now()` leído una vez). Una pendiente
+  vencida ya no ocupa su franja y otro usuario puede haberla reservado, así que no se confirma aunque
+  `bookings:release-unpaid` aún no la haya marcado como caducada. Justo en el instante en que vence
+  (`expires_at == ahora`) ya no se puede.
+- **Un único UPDATE condicional** (`status = pending_payment AND expires_at > ahora`), igual que en
+  `releaseUnpaid`. Si una confirmación y la liberación, o dos confirmaciones, llegan a la vez, solo
+  una encuentra la fila; la otra cambia 0 filas y recibe `BookingNotConfirmableException` con el
+  motivo: ya confirmada, cancelada, caducada, completada, retención vencida o reserva inexistente
+  (borrada lógicamente).
+- **Evento después del commit.** Si cambia la fila, lanza `BookingConfirmed`, que espera al commit de
+  la transacción en curso. El correo y la cola están en [eventos.md](eventos.md).
+
+| Pregunta | Quién responde |
+|---|---|
+| ¿**Quién** puede confirmar? | `BookingPolicy::confirm`: permiso `bookings.confirm` y ser el dueño |
+| ¿**Cuándo** se puede? | `BookingService::confirm`, con el UPDATE condicional |
+
+En la web, el detalle de una reserva pendiente muestra el botón **Pagar (simulado)**
+(`POST my-bookings/{booking}/confirm`).
+
 ## Cancelar una reserva
 
 `cancel(Booking $booking): Booking` bloquea la fila de la reserva, pregunta al scope
@@ -89,6 +117,7 @@ Todas heredan de `App\Exceptions\BookingException` y su mensaje se puede mostrar
 | `InvalidBookingRequestException` | Lista vacía, franjas solapadas entre sí o recurso inactivo |
 | `SlotUnavailableException` | La franja ya está ocupada; guarda la franja en `$slot` |
 | `BookingNotCancellableException` | Ya cancelada, caducada, completada o fuera de plazo |
+| `BookingNotConfirmableException` | Ya confirmada, cancelada, caducada, completada, retención vencida o reserva borrada |
 
 ## Prueba de concurrencia
 
@@ -116,6 +145,9 @@ Escenarios:
   `lock_deadlocks` de InnoDB no sube.
 - Dos cancelaciones simultáneas de la misma reserva, en 5 rondas: una gana y la otra recibe "La
   reserva ya está cancelada."
+- Dos confirmaciones simultáneas de la misma reserva, en 5 rondas: una gana, la otra recibe "La
+  reserva ya está confirmada." y en la tabla `jobs` queda un solo job de correo (el evento se lanzó una
+  vez). Los procesos hijos usan `QUEUE_CONNECTION=database` y `MAIL_MAILER=array`.
 - **Control negativo sin bloqueo:** comprobar e insertar sin bloquear sí produce doble reserva.
 - **Control negativo de orden:** bloquear en orden opuesto sí hace subir el contador.
 
