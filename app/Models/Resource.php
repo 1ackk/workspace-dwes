@@ -133,6 +133,9 @@ class Resource extends Model
      * Dos franjas se solapan si inicio_A < fin_B y fin_A > inicio_B, de modo que una reserva
      * que termina justo cuando empieza otra no se solapa con ella.
      *
+     * $ignoreBookingId deja fuera una reserva concreta, para que al modificarla no choque
+     * consigo misma. Hoy solo lo usan los tests; está pensado para editar reservas.
+     *
      * @param  Builder<self>  $query
      */
     #[Scope]

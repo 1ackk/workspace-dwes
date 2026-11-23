@@ -12,8 +12,9 @@ use Illuminate\Database\Eloquent\Collection;
  * Calcula el precio de las franjas a partir de las tarifas, sin guardar nada.
  *
  * Todo el cálculo usa enteros para no arrastrar errores de los float:
- * céntimos por hora × minutos × (10000 + recargo en puntos básicos), y solo se divide al
- * final de cada franja. Un recargo del 15,00 % son 1500 puntos básicos.
+ * céntimos por hora × minutos × (10000 + recargo en puntos básicos). Los productos exactos se
+ * van sumando y solo se divide para redondear ese total acumulado, al cerrar cada tramo. Un
+ * recargo del 15,00 % son 1500 puntos básicos.
  */
 class PriceCalculator
 {

@@ -65,6 +65,10 @@ class LoginRequest extends FormRequest
         RateLimiter::clear($this->throttleKey());
     }
 
+    /**
+     * Normaliza el correo antes de validar, para que " Ana@Workspace.test" y
+     * "ana@workspace.test" sean el mismo usuario y cuenten en el mismo límite de intentos.
+     */
     protected function prepareForValidation(): void
     {
         $email = $this->input('email');
@@ -90,6 +94,11 @@ class LoginRequest extends FormRequest
         ]);
     }
 
+    /**
+     * Cada combinación de correo e IP tiene su propio contador, así que desde otra IP nadie
+     * puede dejar bloqueado a un usuario. A cambio, probar muchos correos distintos desde la
+     * misma IP no se frena: cada correo empieza de cero.
+     */
     private function throttleKey(): string
     {
         return $this->string('email')->value().'|'.$this->ip();

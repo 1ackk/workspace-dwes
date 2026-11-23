@@ -20,6 +20,7 @@ class RegisterController extends Controller
 
     public function store(RegisterRequest $request): RedirectResponse
     {
+        // Usuario y rol juntos o nada: si falla la asignación del rol, no queda un usuario sin rol.
         $user = DB::transaction(function () use ($request): User {
             $user = User::create($request->validated());
 
@@ -30,6 +31,7 @@ class RegisterController extends Controller
 
         Auth::login($user);
 
+        // Igual que en el login: nuevo identificador de sesión contra la fijación de sesión.
         $request->session()->regenerate();
 
         return redirect()->route('dashboard');

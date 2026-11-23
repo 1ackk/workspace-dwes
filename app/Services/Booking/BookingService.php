@@ -21,8 +21,13 @@ use Illuminate\Support\Facades\DB;
 
 class BookingService
 {
+    /** Las franjas empiezan y terminan en múltiplos de 30 minutos. */
     private const int BLOCK_MINUTES = 30;
 
+    /**
+     * Veces que DB::transaction repite la transacción si el motor la aborta por un
+     * interbloqueo. El orden por id de lockResources ya lo evita; esto es la red de seguridad.
+     */
     private const int TRANSACTION_ATTEMPTS = 3;
 
     public function __construct(private PriceCalculator $calculator) {}
@@ -143,12 +148,17 @@ class BookingService
             BookingStatus::Cancelled => BookingNotCancellableException::alreadyCancelled(),
             BookingStatus::Expired => BookingNotCancellableException::expired(),
             BookingStatus::Completed => BookingNotCancellableException::completed(),
+            // Pendiente o confirmada: si ya no ocupa su franja es una pendiente cuya retención
+            // venció (aunque el comando aún no la haya marcado); si la ocupa, llegó tarde.
             default => $this->stillHoldsItsSlots($booking)
                 ? $this->pastDeadline($booking)
                 : BookingNotCancellableException::expired(),
         };
     }
 
+    /**
+     * Si la reserva sigue ocupando su franja según la regla común Booking::blocking().
+     */
     private function stillHoldsItsSlots(Booking $booking): bool
     {
         $query = Booking::query()->whereKey($booking->id);
@@ -247,6 +257,10 @@ class BookingService
     }
 
     /**
+     * El cuerpo de la transacción, en este orden: bloquear los recursos, volver a validarlos
+     * con los datos bloqueados, comprobar la disponibilidad de cada franja, calcular el precio
+     * y guardar la reserva con su pivote. Cualquier excepción deshace todo.
+     *
      * @param  list<Slot>  $slots
      */
     private function reserve(User $user, array $slots): Booking
@@ -280,8 +294,9 @@ class BookingService
     }
 
     /**
-     * Bloquea todos los recursos en una sola consulta y siempre en el mismo orden,
-     * para que dos reservas simultáneas no se esperen mutuamente.
+     * Bloquea todos los recursos en una sola consulta y siempre en orden ascendente de id.
+     * Si dos reservas comparten recursos, la segunda espera a que termine la primera; lo que
+     * evita el orden fijo es el interbloqueo, en el que cada una esperaría a la otra en círculo.
      *
      * @param  list<Slot>  $slots
      * @return Collection<int, \App\Models\Resource>

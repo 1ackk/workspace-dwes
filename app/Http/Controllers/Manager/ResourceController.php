@@ -35,6 +35,10 @@ class ResourceController extends Controller
         return view('manager.resources.create', $this->formOptions($request));
     }
 
+    /**
+     * Sin Gate aquí: la autorización está en StoreResourceRequest::authorize(), que depende
+     * del espacio elegido en el formulario y se comprueba antes de validar.
+     */
     public function store(StoreResourceRequest $request): RedirectResponse
     {
         Resource::create($request->validated());
@@ -53,6 +57,9 @@ class ResourceController extends Controller
         ]);
     }
 
+    /**
+     * Sin Gate aquí: UpdateResourceRequest::authorize() comprueba el recurso y el espacio de destino.
+     */
     public function update(UpdateResourceRequest $request, Resource $resource): RedirectResponse
     {
         $resource->update($request->validated());

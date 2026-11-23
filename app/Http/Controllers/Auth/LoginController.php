@@ -20,7 +20,11 @@ class LoginController extends Controller
     {
         $request->authenticate();
 
+        // Nuevo identificador de sesión al entrar: evita la fijación de sesión, en la que un
+        // atacante reutiliza un identificador que conocía de antes del login.
         $request->session()->regenerate();
+
+        // Vuelve a la página privada que pidió antes de que le mandaran al login, o al panel.
 
         return redirect()->intended(route('dashboard'));
     }
@@ -29,6 +33,8 @@ class LoginController extends Controller
     {
         Auth::logout();
 
+        // Borra los datos de la sesión y cambia el token CSRF: los formularios abiertos con la
+        // sesión anterior ya no sirven.
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

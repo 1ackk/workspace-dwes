@@ -7,7 +7,8 @@ use App\Models\Resource;
 class UpdateResourceRequest extends StoreResourceRequest
 {
     /**
-     * Exige poder editar el recurso y poder crear en el espacio de destino.
+     * Exige poder editar el recurso y poder crear en el espacio de destino. La segunda
+     * condición (parent::authorize) es la que impide mover un recurso a un espacio ajeno.
      */
     public function authorize(): bool
     {

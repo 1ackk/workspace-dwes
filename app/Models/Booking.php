@@ -149,6 +149,8 @@ class Booking extends Model
         $now = now();
         $noticeHours = Space::query()->distinct()->pluck('cancellation_notice_hours');
 
+        // blocking() incluye las completadas porque ocupan su franja en el histórico, pero
+        // una reserva ya disfrutada no se cancela: aquí solo quedan pendientes y confirmadas.
         self::blocking($query);
 
         $query->where('bookings.status', '<>', BookingStatus::Completed)

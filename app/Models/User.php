@@ -37,7 +37,7 @@ class User extends Authenticatable
     use HasFactory, HasRoles, Notifiable, SoftDeletes;
 
     /**
-     * Get the attributes that should be cast.
+     * Conversiones de tipo de los atributos.
      *
      * @return array<string, string>
      */
@@ -96,7 +96,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the user's initials
+     * Iniciales del nombre del usuario.
      */
     public function initials(): string
     {
