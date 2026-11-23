@@ -21,6 +21,17 @@ it('creates every domain table', function () {
     expect(Schema::hasColumns('booking_resource', ['booking_id', 'resource_id', 'start_at', 'end_at', 'precio_final']))->toBeTrue();
 });
 
+it('has the reminder marks of the sprint 5 migrations, nullable', function () {
+    expect(Schema::hasColumn('bookings', 'reminder_sent_at'))->toBeTrue()
+        ->and(Schema::hasColumn('invoices', 'last_reminded_at'))->toBeTrue();
+
+    $nullable = fn (string $table, string $column) => collect(Schema::getColumns($table))->firstWhere('name', $column)['nullable'];
+
+    expect($nullable('bookings', 'reminder_sent_at'))->toBeTrue()
+        ->and($nullable('invoices', 'last_reminded_at'))->toBeTrue()
+        ->and(Booking::factory()->create()->reminder_sent_at)->toBeNull();
+});
+
 it('stores slot and final price in the booking-resource pivot', function () {
     $room = Resource::factory()->meetingRoom()->create();
     $projector = Resource::factory()->projector()->for($room->space)->create();

@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property InvoiceStatus $status
  * @property Carbon|null $issued_at
  * @property Carbon|null $due_at
+ * @property Carbon|null $last_reminded_at Último aviso de factura vencida.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -52,6 +53,7 @@ class Invoice extends Model
             'period_end' => 'date',
             'issued_at' => 'datetime',
             'due_at' => 'date',
+            'last_reminded_at' => 'datetime',
         ];
     }
 

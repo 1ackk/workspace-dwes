@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property BookingStatus $status
  * @property Carbon|null $expires_at
  * @property Carbon|null $cancelled_at
+ * @property Carbon|null $reminder_sent_at Cuándo se envió el recordatorio de reserva próxima.
  * @property string $total
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -45,6 +46,7 @@ class Booking extends Model
             'status' => BookingStatus::class,
             'expires_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
             'total' => 'decimal:2',
         ];
     }

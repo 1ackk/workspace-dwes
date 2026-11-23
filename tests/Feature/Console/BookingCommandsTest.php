@@ -91,7 +91,14 @@ describe('schedule', function () {
     })->with([
         'release-unpaid cada minuto' => ['bookings:release-unpaid', '* * * * *'],
         'complete-past cada hora' => ['bookings:complete-past', '0 * * * *'],
+        'remind-upcoming cada hora' => ['bookings:remind-upcoming', '0 * * * *'],
+        'send-overdue-reminders a las 09:00' => ['invoices:send-overdue-reminders', '0 9 * * *'],
     ]);
+
+    test('the daily invoice reminder runs at 09:00 in the application timezone', function () {
+        expect(scheduledEvent('invoices:send-overdue-reminders')->timezone)->toBe('Europe/Madrid')
+            ->and(config('app.timezone'))->toBe('Europe/Madrid');
+    });
 
     test('the reports are not scheduled', function (string $command) {
         expect(scheduledEvent($command))->toBeNull();

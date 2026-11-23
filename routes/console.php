@@ -10,3 +10,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command('bookings:release-unpaid')->everyMinute()->withoutOverlapping();
 Schedule::command('bookings:complete-past')->hourly()->withoutOverlapping();
+Schedule::command('bookings:remind-upcoming')->hourly()->withoutOverlapping();
+
+// La hora se interpreta en la zona de la aplicación (app.timezone, Europe/Madrid).
+Schedule::command('invoices:send-overdue-reminders')->dailyAt('09:00')->withoutOverlapping();

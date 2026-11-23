@@ -10,9 +10,11 @@ correo.
 |---|---|---|---|---|---|---|
 | **Hecho** | `BookingConfirmed` | `BookingService::confirm()`, desde la web (pago simulado) | `SendBookingConfirmedMail` | `SendBookingConfirmedMailJob` | Sí, `mail` | `BookingConfirmedMail` |
 | **Hecho** | `BookingCancelled` | `BookingService::cancel()`, desde la web | `SendBookingCancelledMail` | `SendBookingCancelledMailJob` | Sí, `mail` | `BookingCancelledMail` |
-| Pendiente | `InvoiceOverdue` | Comando nuevo `invoices:notify-overdue` (diario) sobre el scope `overdueInvoices` | `SendInvoiceOverdueMail` | `SendInvoiceOverdueMailJob` | Sí, `mail` | `InvoiceOverdueMail` |
+| **Hecho** | `InvoiceOverdue` | `ReminderService::remindOverdue()`, desde `invoices:send-overdue-reminders` (diario, 09:00) | `SendInvoiceOverdueMail` | `SendInvoiceOverdueMailJob` | Sí, `mail` | `InvoiceOverdueMail` |
 | **Hecho** | `BookingExpired` | `BookingService::releaseUnpaid()`, desde `bookings:release-unpaid` (cada minuto) | `SendBookingExpiredMail` | `SendBookingExpiredMailJob` | No | `BookingExpiredMail` |
-| Pendiente | `BookingStartingSoon` | Comando nuevo `bookings:send-reminders` (cada hora) | `SendBookingReminderMail` | `SendBookingReminderMailJob` | No | `BookingReminderMail` |
+| **Hecho** | `BookingStartingSoon` | `ReminderService::remindUpcoming()`, desde `bookings:remind-upcoming` (cada hora) | `SendBookingReminderMail` | `SendBookingReminderMailJob` | No | `BookingReminderMail` |
+
+Total: 5 eventos, 5 listeners, 5 jobs (3 en cola: confirmada, cancelada y factura vencida) y 5 correos.
 
 Por qué cada uno va o no a la cola:
 
@@ -23,11 +25,12 @@ Por qué cada uno va o no a la cola:
 - **Caducada (síncrona).** La lanza el programador, sin nadie esperando, y son pocas por minuto (una
   por retención abandonada). El comando, protegido por `withoutOverlapping`, puede decir en su salida
   cuántos avisos ha enviado.
-- **Recordatorio (síncrono).** El comando necesita saber que el correo salió para anotarlo
-  (`reminded_at`, en una migración nueva) y no repetirlo a la hora siguiente. Además, en cola, con el
-  worker parado llegaría tarde y dejaría de tener sentido.
+- **Recordatorio (síncrono).** Solo tiene sentido antes de que empiece la reserva: en cola, con el
+  worker parado, llegaría tarde. En síncrono sale en la misma ejecución que lo marca
+  (`bookings.reminder_sent_at`), y el comando dice en su salida cuántos ha enviado. La marca se pone
+  antes de enviar, para que nunca se repita; si el envío falla se registra y no se reintenta.
 
-Con los dos comandos nuevos el proyecto tendrá 6 de los 7 comandos de M6; falta uno más en el sprint.
+Con los dos comandos de recordatorio el proyecto tiene 6 de los 7 comandos de M6; falta uno más.
 
 ## El flujo de una reserva confirmada
 
@@ -90,6 +93,37 @@ la siguiente reserva. Un titular borrado lógicamente ni siquiera llega a fallar
 dos con relojes distintos en cada proceso, un instante que no se puede provocar de forma fiable. El
 caso que sí importa, una reserva que cambia entre la lectura y el UPDATE, se prueba de forma
 determinista en SQLite (`BookingExpiredNotificationTest`, con `DB::listen`).
+
+## Recordatorios: reserva próxima y factura vencida
+
+La lógica está en `App\Services\Reminders\ReminderService` (no en `BookingService`), y los comandos
+solo la llaman y escriben el resultado. Los dos métodos siguen el esquema de `releaseUnpaid`: leer los
+ids de las candidatas, marcar cada una con un UPDATE que repite la regla completa (incluido "todavía
+sin marcar") y lanzar el evento **solo por las filas que ese UPDATE cambió**. Si otra ejecución marca
+la fila entre la lectura y el UPDATE, el aviso sale una sola vez. Un fallo al avisar de una fila se
+registra con `report()` y no impide avisar a las demás. Con `--dry-run` solo se cuenta.
+
+**`BookingStartingSoon` (síncrono), `bookings:remind-upcoming [--hours=24] [--dry-run]`.**
+
+- Reservas `confirmed`, no borradas, con `reminder_sent_at` nulo, cuya **primera franja** empieza en
+  `(ahora, ahora + horas]`: alguna franja en la ventana y ninguna ya empezada. Una que empieza justo
+  ahora no entra; una que empieza justo en `ahora + horas`, sí.
+- `--hours` es un entero de 1 a 168; fuera de rango, error y código 1.
+- El job envía solo si la reserva sigue confirmada y su titular existe. El correo dice cuántas horas
+  faltan (redondeando hacia arriba: a 30 minutos dice "1 hora") y lleva el resumen común.
+
+**`InvoiceOverdue` (en cola `mail`), `invoices:send-overdue-reminders [--every-days=7] [--as-of=AAAA-MM-DD] [--dry-run]`.**
+
+- Parte del scope `overdueInvoices($asOf)` (pendientes, vencidas antes de la fecha y con saldo) y le
+  encadena una condición, sin crear un scope nuevo: `last_reminded_at` nulo o anterior a ahora − N
+  días. Justo a los N días todavía no se repite.
+- Marca solo `invoices.last_reminded_at`, con `toBase()->update()`: ni el estado, ni el importe, ni
+  `updated_at` cambian.
+- `--every-days` es un entero de 1 a 90 y `--as-of` usa el formato estricto de `ParsesDays`.
+- El evento lleva la fecha de referencia. Al ejecutarse, el job vuelve a preguntar al scope con esa
+  fecha: si la factura se pagó entre medias no envía nada, y si no, usa el saldo de ese momento.
+  Tampoco envía si el titular está borrado lógicamente. El correo lleva el número, el vencimiento,
+  los días de retraso (como `invoices:list-overdue`) y el saldo pendiente.
 
 ## Configuración
 

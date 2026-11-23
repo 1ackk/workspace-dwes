@@ -68,6 +68,7 @@ erDiagram
         decimal amount
         string status "pending, paid, void"
         date due_at
+        timestamp last_reminded_at "nulable, ultimo aviso de vencida"
         timestamp deleted_at "SoftDeletes"
     }
     BOOKINGS {
@@ -78,6 +79,7 @@ erDiagram
         string status "pending_payment, confirmed, cancelled, expired, completed"
         timestamp expires_at "caducidad de la retencion"
         timestamp cancelled_at
+        timestamp reminder_sent_at "nulable, recordatorio enviado"
         decimal total
         timestamp deleted_at "SoftDeletes"
     }
@@ -197,6 +199,10 @@ Todas se recorren en los tests (`DatabaseSchemaTest` y `RelationshipsTest`).
 - **Estados** como cadenas con enums PHP (`App\Enums`), no `ENUM` de base de datos, para
   que el esquema sea portable.
 - **Email de usuarios borrados**: `users.email` es único también entre borrados; si algún día se borran cuentas, se restaura el usuario en lugar de crear otro con el mismo email.
+- **Marcas de los recordatorios** (sprint 5, en dos migraciones nuevas, sin editar las anteriores):
+  `bookings.reminder_sent_at` y `invoices.last_reminded_at`, `timestamp` nulos. Los comandos de
+  recordatorio las ponen con un UPDATE condicional para no avisar dos veces (ver
+  [eventos.md](eventos.md)). La marca de la factura no toca su estado, su importe ni `updated_at`.
 
 ## Disponibilidad (cómo la aplica el servicio de reservas)
 
