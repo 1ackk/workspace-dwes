@@ -24,6 +24,9 @@
                 <nav class="flex items-center gap-4 text-sm">
                     @auth
                         <a href="{{ route('dashboard') }}" class="hover:underline">{{ __('Panel') }}</a>
+                        @can('create', \App\Models\Booking::class)
+                            <a href="{{ route('calendar') }}" class="hover:underline">{{ __('Reservar') }}</a>
+                        @endcan
                         <a href="{{ route('my-bookings.index') }}" class="hover:underline">{{ __('Mis reservas') }}</a>
 
                         <form method="POST" action="{{ route('logout') }}">

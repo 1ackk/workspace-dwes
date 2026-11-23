@@ -3,5 +3,9 @@
         <h1 class="text-2xl font-semibold">{{ __('Panel') }}</h1>
 
         <p class="text-gray-700">{{ __('Has entrado como :name (:email).', ['name' => auth()->user()->name, 'email' => auth()->user()->email]) }}</p>
+
+        @can('create', \App\Models\Booking::class)
+            <a href="{{ route('calendar') }}" class="font-medium underline">{{ __('Reservar un recurso') }}</a>
+        @endcan
     </div>
 </x-layouts::app>

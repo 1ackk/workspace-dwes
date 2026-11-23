@@ -27,7 +27,7 @@ use Throwable;
 class BookingService
 {
     /** Las franjas empiezan y terminan en múltiplos de 30 minutos. */
-    private const int BLOCK_MINUTES = 30;
+    public const int BLOCK_MINUTES = 30;
 
     /**
      * Veces que DB::transaction repite la transacción si el motor la aborta por un

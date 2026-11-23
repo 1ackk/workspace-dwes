@@ -90,6 +90,14 @@ de una reserva no impide liberar las demás. Detalles en [eventos.md](eventos.md
 En la web, el detalle de una reserva pendiente muestra el botón **Pagar (simulado)**
 (`POST my-bookings/{booking}/confirm`).
 
+## Reservar desde la pantalla de calendario
+
+La pantalla Livewire `calendar` (`App\Livewire\BookingCalendar`) es la forma de reservar desde el
+navegador: rejilla de franjas de 30 minutos con su disponibilidad (`AvailabilityGrid`, con las mismas
+reglas de bloqueo que `available`), tramo, precio, **Reservar** (`createPending`) y **Pagar
+(simulado)** (`confirm`). Descartar no cancela: deja que la retención caduque. Detalles y medidas de
+seguridad en [livewire.md](livewire.md).
+
 ## Cancelar una reserva
 
 `cancel(Booking $booking): Booking` bloquea la fila de la reserva, pregunta al scope

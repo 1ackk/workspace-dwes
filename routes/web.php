@@ -10,6 +10,8 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Manager\ResourceController;
 use App\Http\Controllers\Manager\SpaceController;
 use App\Http\Controllers\MyBookingController;
+use App\Livewire\BookingCalendar;
+use App\Models\Booking;
 use App\Models\Space;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +36,11 @@ Route::middleware('auth')->group(function () {
     // Reservas del usuario con sesión (solo lectura)
     Route::get('my-bookings', [MyBookingController::class, 'index'])->name('my-bookings.index');
     Route::get('my-bookings/{booking}', [MyBookingController::class, 'show'])->name('my-bookings.show');
+
+    // Reservar (Livewire): hace falta poder crear reservas (BookingPolicy::create, bookings.create)
+    Route::livewire('calendar', BookingCalendar::class)
+        ->middleware('can:create,'.Booking::class)
+        ->name('calendar');
 
     // Pago simulado: BookingPolicy::confirm decide con el middleware can
     Route::post('my-bookings/{booking}/confirm', [MyBookingController::class, 'confirm'])
