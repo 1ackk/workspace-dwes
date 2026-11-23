@@ -32,7 +32,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
- * @property-read string $balance Solo con el scope overdueInvoices.
+ * @property-read string $balance Solo si la consulta lo añade con balanceQuery() (p. ej. el scope overdueInvoices).
  */
 #[Fillable(['user_id', 'rectifies_invoice_id', 'number', 'period_start', 'period_end', 'amount', 'status', 'issued_at', 'due_at'])]
 class Invoice extends Model
@@ -102,20 +102,17 @@ class Invoice extends Model
     }
 
     /**
-     * Facturas pendientes, vencidas antes de la fecha de referencia y con saldo por cobrar.
-     * Añade la columna calculada balance: reservas facturables menos pagos completados.
+     * Subconsulta del saldo pendiente de la factura de la consulta exterior (invoices.id):
+     * reservas facturables menos pagos completados. ROUND evita que el error de coma flotante
+     * de SQLite deje céntimos fantasma.
      *
-     * ROUND evita que el error de coma flotante de SQLite deje céntimos fantasma, y la fecha
-     * de referencia solo mueve el corte de vencimiento: el saldo es siempre el actual.
+     * No es un scope: es el cálculo común del scope overdueInvoices y del detalle de una
+     * factura, que la añade con selectSub (como Booking::blocking en los scopes de reservas).
      *
-     * @param  Builder<self>  $query
+     * @return Builder<Booking>
      */
-    #[Scope]
-    protected function overdueInvoices(Builder $query, ?CarbonInterface $asOf = null): void
+    public static function balanceQuery(?CarbonInterface $now = null): Builder
     {
-        $now = now();
-        $referenceDate = ($asOf ?? $now)->copy()->setTimezone(config('app.timezone'))->toDateString();
-
         $balance = Booking::query()
             ->selectRaw(
                 'ROUND(COALESCE(SUM(bookings.total), 0) - (
@@ -126,6 +123,25 @@ class Invoice extends Model
             )
             ->whereColumn('bookings.invoice_id', 'invoices.id');
         Booking::blocking($balance, $now);
+
+        return $balance;
+    }
+
+    /**
+     * Facturas pendientes, vencidas antes de la fecha de referencia y con saldo por cobrar.
+     * Añade la columna calculada balance con balanceQuery().
+     *
+     * La fecha de referencia solo mueve el corte de vencimiento: el saldo es siempre el actual.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function overdueInvoices(Builder $query, ?CarbonInterface $asOf = null): void
+    {
+        $now = now();
+        $referenceDate = ($asOf ?? $now)->copy()->setTimezone(config('app.timezone'))->toDateString();
+
+        $balance = self::balanceQuery($now);
 
         $query->select('invoices.*')
             ->selectSub($balance, 'balance')

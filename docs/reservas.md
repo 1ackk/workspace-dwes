@@ -97,7 +97,7 @@ Todas heredan de `App\Exceptions\BookingException` y su mensaje se puede mostrar
 
 Necesita una base **dedicada y local** llamada `workspace_test`, y se niega a ejecutarse contra
 cualquier otra: hace `migrate:fresh` en ella. Las variables de entorno tienen prioridad sobre
-`.env` y `phpunit.xml`, de modo que ni tu `.env` ni la base de desarrollo se tocan. Desde `proyecto/`,
+`.env` y `phpunit.xml`, de modo que ni tu `.env` ni la base de desarrollo se tocan. Desde la raíz del repositorio,
 en PowerShell y con la conexión `mysql`:
 
 ```powershell

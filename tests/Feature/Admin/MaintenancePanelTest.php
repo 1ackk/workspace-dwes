@@ -82,6 +82,36 @@ test('the controller itself refuses a task outside the list', function () {
     app(MaintenanceController::class)('db:wipe');
 })->throws(NotFoundHttpException::class);
 
+test('a command that fails is shown as an error, not as a success', function (string $output, string $expected) {
+    Artisan::shouldReceive('call')->once()->with('bookings:complete-past')->andReturn(1);
+    Artisan::shouldReceive('output')->once()->andReturn($output);
+
+    $this->actingAs(userWithRole(RoleName::Admin))
+        ->post(route('admin.maintenance.run', 'complete-past'))
+        ->assertRedirect(route('admin.index'))
+        ->assertSessionHas('error', $expected)
+        ->assertSessionMissing('status');
+})->with([
+    'con salida' => ["Algo ha ido mal.\n", 'La tarea no se ha completado (código de salida 1). Algo ha ido mal.'],
+    'sin salida' => ['', 'La tarea no se ha completado (código de salida 1).'],
+]);
+
+test('the panel shows the error in red', function () {
+    $this->actingAs(userWithRole(RoleName::Admin))
+        ->withSession(['error' => 'La tarea no se ha completado (código de salida 1).'])
+        ->get(route('admin.index'))
+        ->assertOk()
+        ->assertSee('role="alert"', false)
+        ->assertSee('La tarea no se ha completado (código de salida 1).');
+});
+
+test('a successful command keeps the success message and no error', function () {
+    $this->actingAs(userWithRole(RoleName::Admin))
+        ->post(route('admin.maintenance.run', 'release-unpaid'))
+        ->assertSessionHas('status', 'Reservas liberadas: 0.')
+        ->assertSessionMissing('error');
+});
+
 test('the command name cannot be injected through the request body', function () {
     Artisan::shouldReceive('call')->once()->with('bookings:release-unpaid')->andReturn(0);
     Artisan::shouldReceive('output')->once()->andReturn("Reservas liberadas: 0.\n");

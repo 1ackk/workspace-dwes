@@ -4,8 +4,12 @@ use App\Enums\RoleName;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\IncidentController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Manager\ResourceController;
+use App\Http\Controllers\Manager\SpaceController;
 use App\Http\Controllers\MyBookingController;
+use App\Models\Space;
 use Illuminate\Support\Facades\Route;
 
 // Zona pública
@@ -29,6 +33,12 @@ Route::middleware('auth')->group(function () {
     // Reservas del usuario con sesión (solo lectura)
     Route::get('my-bookings', [MyBookingController::class, 'index'])->name('my-bookings.index');
     Route::get('my-bookings/{booking}', [MyBookingController::class, 'show'])->name('my-bookings.show');
+
+    // Detalle de una factura: InvoicePolicy decide con Gate::authorize en el controlador
+    Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+
+    // Detalle de una incidencia: IncidentPolicy decide con Gate::authorize en el controlador
+    Route::get('incidents/{incident}', [IncidentController::class, 'show'])->name('incidents.show');
 });
 
 // Gestión por rol: otro rol recibe un 403 y un invitado va al login
@@ -60,5 +70,16 @@ Route::middleware('auth')->group(function () {
         ->middleware('role:'.RoleName::SpaceManager->value.'|'.RoleName::Admin->value)
         ->group(function () {
             Route::resource('resources', ResourceController::class)->except(['show', 'destroy']);
+
+            // Espacios: SpacePolicy decide con el middleware can (viewManagement y update)
+            Route::get('spaces', [SpaceController::class, 'index'])
+                ->middleware('can:viewManagement,'.Space::class)
+                ->name('spaces.index');
+            Route::get('spaces/{space}/edit', [SpaceController::class, 'edit'])
+                ->middleware('can:update,space')
+                ->name('spaces.edit');
+            Route::put('spaces/{space}', [SpaceController::class, 'update'])
+                ->middleware('can:update,space')
+                ->name('spaces.update');
         });
 });

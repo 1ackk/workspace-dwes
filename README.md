@@ -161,8 +161,41 @@ la caché, la sesión y el correo, y hace la cola síncrona.
 | El manifest de `npm run build` | |
 | El `.env` con su clave (`phpunit.xml` no define `APP_KEY`) | |
 
-La prueba de concurrencia (`tests/Concurrency`) necesita MySQL y una base local dedicada `workspace_test`; con SQLite se
-omite. El comando y las condiciones están en [`docs/reservas.md`](docs/reservas.md).
+La prueba de concurrencia (`tests/Concurrency`) se omite con SQLite: la explica la sección siguiente.
+
+### Prueba de concurrencia (MySQL)
+
+`tests/Concurrency` lanza procesos PHP reales que reservan o cancelan **a la vez**, para comprobar que dos personas no
+consiguen la misma franja. Necesita MySQL porque `lockForUpdate()` no actúa en SQLite: con SQLite estos tests salen
+como omitidos, por eso `php artisan test` normal da algunos *skipped*.
+
+**Requisitos:**
+
+1. Un servidor MySQL local en marcha (`127.0.0.1:3306`).
+2. Una base de datos vacía y dedicada llamada `workspace_test`:
+
+   ```sql
+   CREATE DATABASE workspace_test;
+   ```
+
+3. Opcional: el contador de interbloqueos de InnoDB activado, que usa uno de los escenarios. Si está desactivado, ese
+   test falla y dice cómo activarlo:
+
+   ```sql
+   SET GLOBAL innodb_monitor_enable = 'lock_deadlocks';
+   ```
+
+**Ejecutarla** (PowerShell, en la raíz del repositorio; ajusta usuario y contraseña a tu MySQL):
+
+```powershell
+$env:DB_CONNECTION='mysql'; $env:DB_HOST='127.0.0.1'; $env:DB_PORT='3306'; $env:DB_DATABASE='workspace_test'; $env:DB_USERNAME='root'; $env:DB_PASSWORD=''; php artisan test --group=concurrency; Remove-Item Env:DB_*
+```
+
+Las variables de entorno tienen prioridad sobre `.env` y `phpunit.xml`, así que **ni tu `.env` ni tu base de
+desarrollo se tocan**, y `Remove-Item Env:DB_*` las borra al terminar. Por seguridad, la prueba se niega a ejecutarse
+si la base no se llama `workspace_test` o el servidor no es local, porque hace `migrate:fresh` sobre ella.
+
+Los escenarios y cómo se consigue la simultaneidad están en [`docs/reservas.md`](docs/reservas.md).
 
 ---
 

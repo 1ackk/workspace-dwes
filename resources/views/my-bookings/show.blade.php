@@ -11,6 +11,13 @@
 
             <dt class="font-medium">{{ __('Total') }}</dt>
             <dd>{{ number_format((float) $booking->total, 2, ',', '.') }} €</dd>
+
+            @if ($booking->invoice)
+                @can('view', $booking->invoice)
+                    <dt class="font-medium">{{ __('Factura') }}</dt>
+                    <dd><a href="{{ route('invoices.show', $booking->invoice) }}" class="underline">{{ $booking->invoice->number }}</a></dd>
+                @endcan
+            @endif
         </dl>
 
         <table class="w-full bg-white text-left text-sm">

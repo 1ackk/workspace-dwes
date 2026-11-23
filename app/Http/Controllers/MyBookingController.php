@@ -27,7 +27,7 @@ class MyBookingController extends Controller
     {
         Gate::authorize('view', $booking);
 
-        $booking->load('resources.space');
+        $booking->load(['resources.space', 'invoice']);
 
         return view('my-bookings.show', ['booking' => $booking]);
     }

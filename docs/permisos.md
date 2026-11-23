@@ -131,6 +131,10 @@ detalle, que es de solo lectura:
 El responsable del recurso se deriva de `spaces.manager_id`. Un responsable que abre una incidencia
 en un espacio ajeno la ve y responde, pero no cambia su estado.
 
+Dónde se aplica: el detalle `incidents/{incident}` (`IncidentController::show`) llama a
+`Gate::authorize('view', $incident)`. El responsable de otro espacio, un miembro que no es el autor y el contable
+reciben 403.
+
 ### InvoicePolicy
 
 | Habilidad | usuario | recepción | responsable de espacio | contable | administrador |
@@ -143,6 +147,10 @@ en un espacio ajeno la ve y responde, pero no cambia su estado.
 
 Las facturas nunca se borran: se anulan y se rectifican con otra.
 
+Dónde se aplica: el detalle `invoices/{invoice}` (`InvoiceController::show`) llama a `Gate::authorize('view', $invoice)`,
+así que una factura ajena da 403. El saldo pendiente que muestra sale de `Invoice::balanceQuery()`, el mismo cálculo que
+usa el scope `overdueInvoices`.
+
 ### SpacePolicy
 
 | Habilidad | visitante | usuario | recepción | responsable de espacio | contable | administrador |
@@ -154,6 +162,10 @@ Las facturas nunca se borran: se anulan y se rectifican con otra.
 | `delete` | No | No | No | No | No | Todos |
 
 `update` cubre la gestión del espacio. Gestionar sus recursos lo decide `ResourcePolicy::create($space)`.
+
+Dónde se aplica: el listado `manager/spaces` usa `can:viewManagement` y la edición (`manager/spaces/{space}/edit` y
+su `PUT`) usa `can:update,space`, las dos como middleware en `routes/web.php`. El grupo de rutas solo deja entrar a
+responsables y administradores, así que recepción, que tiene `spaces.view-any`, recibe un 403 en el listado.
 
 ## Qué decide la policy y qué decide el servicio
 

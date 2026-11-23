@@ -4,6 +4,7 @@
 
         <p class="text-gray-700">{{ __('Página provisional para el rol administrador.') }}</p>
 
+        <a href="{{ route('manager.spaces.index') }}" class="font-medium underline">{{ __('Espacios') }}</a>
         <a href="{{ route('manager.resources.index') }}" class="font-medium underline">{{ __('Recursos') }}</a>
 
         <section class="flex flex-col gap-3">
@@ -11,6 +12,10 @@
 
             @session('status')
                 <p class="text-sm text-green-700">{{ $value }}</p>
+            @endsession
+
+            @session('error')
+                <p role="alert" class="text-sm text-red-700">{{ $value }}</p>
             @endsession
 
             <div class="flex flex-wrap gap-3">
