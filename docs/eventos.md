@@ -160,3 +160,8 @@ Los jobs fallidos se ven con `php artisan queue:failed` y se reintentan con `php
 
 Con `MAIL_MAILER=log`, cada correo se escribe completo (cabeceras y HTML) al final de
 `storage/logs/laravel.log`. No sale ningún correo real.
+
+## Límites conocidos
+
+Lo que este sprint no cubre (por ejemplo, la cancelación desde la web, el pago real o Telegram contra un bot de
+verdad) está en el apartado "Límites conocidos" del [README](../README.md#límites-conocidos).

@@ -79,7 +79,17 @@ el programador está en marcha:
   * * * * * cd /ruta/al/proyecto && php artisan schedule:run >> /dev/null 2>&1
   ```
 
-`php artisan schedule:list` muestra lo programado y cuándo toca cada tarea.
+`php artisan schedule:list` muestra lo programado y cuándo toca cada tarea:
+
+| Comando | Frecuencia | Cron |
+|---|---|---|
+| `bookings:release-unpaid` | Cada minuto | `* * * * *` |
+| `bookings:complete-past` | Cada hora | `0 * * * *` |
+| `bookings:remind-upcoming` | Cada hora | `0 * * * *` |
+| `invoices:send-overdue-reminders` | A diario a las 09:00 (hora de Madrid) | `0 9 * * *` |
+
+No se programan los dos informes (`invoices:list-overdue`, `occupancy:report`) ni `invoices:generate`,
+que se lanza a mano o desde el panel de contabilidad cuando se cierra un mes.
 
 ## Demostración con el seeder
 

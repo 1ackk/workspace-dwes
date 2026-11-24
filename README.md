@@ -22,6 +22,7 @@ disponibilidad y concurrencia, facturación e incidencias.
 - [Usuarios de demostración](#usuarios-de-demostración)
 - [Pruebas](#pruebas)
 - [Comandos útiles](#comandos-útiles)
+- [Límites conocidos](#límites-conocidos)
 - [Documentación](#documentación)
 
 ---
@@ -36,10 +37,15 @@ disponibilidad y concurrencia, facturación e incidencias.
 - **Precio por tramos:** tarifa base y recargos de tarde y fin de semana, calculados en céntimos enteros y con la hora
   de Madrid.
 - **Pantalla de reserva con Livewire** (`/calendar`): rejilla de franjas, precio, reserva y pago simulado.
+- **Eventos, colas y correos:** 5 eventos con sus listeners y jobs (3 en la cola `mail`) y 5 correos en español:
+  reserva confirmada, cancelada, caducada, recordatorio de reserva próxima y factura vencida.
+- **Facturación mensual:** `invoices:generate` crea una factura por usuario con las reservas completadas del mes,
+  desde consola o desde el panel de contabilidad.
 - **Avisos por Telegram (A2)**, opcionales: canal simulado por defecto y bot real configurable.
 - **Siete scopes**, cuatro de ellos complejos: disponibilidad, reservas cancelables, facturas vencidas y ocupación por
   periodo.
-- **Cuatro comandos Artisan** programados con el *scheduler*; dos se lanzan también desde el panel de administración.
+- **Siete comandos Artisan**, cuatro programados con el *scheduler* y tres lanzados también desde la web (paneles de
+  mantenimiento y de contabilidad).
 - **Componentes Blade** de formulario y una regla de validación propia.
 
 ---
@@ -98,8 +104,16 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-En PowerShell, la copia es `Copy-Item .env.example .env`. `.env.example` ya viene con SQLite (`DB_CONNECTION=sqlite`),
-y la base por defecto es `database/database.sqlite`.
+En PowerShell, la copia es `Copy-Item .env.example .env`. `.env.example` ya viene preparado para desarrollo:
+
+| Variable | Valor | Para qué |
+|---|---|---|
+| `DB_CONNECTION` | `sqlite` | La base es `database/database.sqlite` |
+| `QUEUE_CONNECTION` | `database` | Los jobs van a la tabla `jobs` y los procesa el worker (paso 5) |
+| `MAIL_MAILER` | `log` | Los correos se escriben en `storage/logs/laravel.log`; no se envía ninguno |
+| `NOTIFICATIONS_CHANNEL` | `simulated` | Los avisos de Telegram se escriben en `storage/logs/notifications.log` |
+| `TELEGRAM_BOT_TOKEN` | vacío | Solo para un bot real ([docs/telegram.md](docs/telegram.md)); nunca en Git |
+| `INVOICE_DUE_DAYS` | `15` | Días para pagar una factura generada |
 
 ### 4. Crear la base de datos con datos de demostración
 
@@ -115,8 +129,22 @@ Si `database/database.sqlite` no existe, Artisan pregunta si quieres crearlo: re
 composer dev
 ```
 
-Levanta a la vez `php artisan serve`, la cola y `npm run dev` (Vite con recarga automática). Si ya hiciste
-`npm run build`, también basta con `php artisan serve`.
+Levanta a la vez `php artisan serve`, el worker de la cola (`queue:listen --queue=mail,default`) y `npm run dev` (Vite
+con recarga automática).
+
+Si prefieres lanzarlos por separado (con los estilos ya compilados en el paso 2), una terminal para cada uno:
+
+```bash
+php artisan serve
+```
+
+```bash
+php artisan queue:work --queue=mail,default
+```
+
+**Sin el worker, los correos en cola no salen.** `--queue=mail,default` es necesario: los correos y los avisos van a la
+cola `mail`. Para las tareas programadas, además, `php artisan schedule:work` (ver [docs/comandos.md](docs/comandos.md)).
+El guion completo para enseñarlo está en [docs/demostracion.md](docs/demostracion.md).
 
 > [!TIP]
 > `composer setup` hace de una vez la instalación, la copia de `.env`, `key:generate`, `migrate --force`,
@@ -167,8 +195,8 @@ La prueba de concurrencia (`tests/Concurrency`) se omite con SQLite: la explica 
 
 ### Prueba de concurrencia (MySQL)
 
-`tests/Concurrency` lanza procesos PHP reales que reservan o cancelan **a la vez**, para comprobar que dos personas no
-consiguen la misma franja. Necesita MySQL porque `lockForUpdate()` no actúa en SQLite: con SQLite estos tests salen
+`tests/Concurrency` lanza procesos PHP reales que reservan, cancelan, confirman o facturan **a la vez**, para comprobar
+que dos personas no consiguen la misma franja y que nada se hace dos veces. Necesita MySQL porque `lockForUpdate()` no actúa en SQLite: con SQLite estos tests salen
 como omitidos, por eso `php artisan test` normal da algunos *skipped*.
 
 **Requisitos:**
@@ -211,7 +239,35 @@ Los escenarios y cómo se consigue la simultaneidad están en [`docs/reservas.md
 | `composer lint` | Formatea el código con Pint |
 | `composer types:check` | Análisis estático con Larastan |
 | `composer test` | Estilo, tipos y tests |
+| `php artisan queue:work --queue=mail,default` | Worker: procesa los correos y avisos en cola |
+| `php artisan queue:failed` / `queue:retry all` | Ver y reintentar los jobs fallidos |
 | `php artisan schedule:work` | Ejecuta los comandos programados mientras está abierto |
+| `php artisan invoices:generate 2026-10` | Factura un mes ya terminado |
+
+---
+
+## Límites conocidos
+
+Lo que la aplicación **no** cubre todavía, dicho tal cual:
+
+- **No hay tope de reservas pendientes de pago por usuario.** Cada una retiene sus franjas 15 minutos; un usuario
+  podría encadenar varias retenciones.
+- **El pago es simulado.** No hay pasarela real: el punto de enganche para una (A3) es `BookingService::confirm`.
+- **En la web no se puede cancelar una reserva.** `BookingService::cancel` funciona y está probado (y envía su correo),
+  pero no tiene todavía botón ni ruta: se usa desde Tinker o desde código.
+- **Telegram real no se ha probado contra un bot de verdad**, solo con `Http::fake`. El enlace de la cuenta con el bot es
+  manual (no hay webhook de `/start`), y un `429` se reintenta sin leer el `retry_after` de Telegram.
+- **Con la cola `sync`, un fallo transitorio de Telegram no se reintenta:** el listener lo registra con `report()` para
+  no romper la confirmación. Con la cola `database` sí se reintenta.
+- **Concurrencia no demostrada en MySQL:** la colisión real de números de factura entre dos ejecuciones (el reintento
+  está probado de forma determinista en SQLite) y liberar frente a confirmar a la vez (sus condiciones se excluyen;
+  probado solo con `DB::listen` en SQLite).
+- **La pantalla de reserva** crea reservas de un solo recurso, "Descartar" no libera la franja hasta que caduca la
+  retención, y la rejilla no se actualiza sola con las reservas de otros usuarios mientras se mira.
+- **Listados que faltan:** un usuario no tiene listado de sus facturas ni de sus incidencias (se llega a cada una por
+  su URL), y el responsable no tiene listado de las reservas de su espacio.
+- **Telegram solo avisa de la confirmación;** los otros cuatro eventos solo envían correo.
+- **`invoices:generate` no se programa:** se lanza a mano o desde el panel al cerrar un mes.
 
 ---
 
@@ -228,4 +284,5 @@ Los escenarios y cómo se consigue la simultaneidad están en [`docs/reservas.md
 | [`docs/telegram.md`](docs/telegram.md) | A2: avisos por Telegram, canal simulado y cómo configurar un bot real |
 | [`docs/scopes.md`](docs/scopes.md) | Los siete scopes |
 | [`docs/comandos.md`](docs/comandos.md) | Los comandos Artisan y su programación |
-| [`docs/sprint-4.md`](docs/sprint-4.md) | Resumen del sprint 4 y guion de demostración |
+| [`docs/demostracion.md`](docs/demostracion.md) | Guion de demostración del sprint 5, paso a paso |
+| [`docs/sprint-4.md`](docs/sprint-4.md) | Resumen del sprint 4 y su guion de demostración (estado de entonces) |

@@ -60,3 +60,10 @@ test('7 scopes', function () {
 test('1 Livewire class, 0 CRUD', function () {
     expect(array_map('basename', phpFilesIn('Livewire')))->toBe(['BookingCalendar.php']);
 });
+
+test('composer dev listens to the mail queue, where every mail and notice goes', function () {
+    $composer = json_decode((string) file_get_contents(base_path('composer.json')), true);
+    $dev = implode(' ', $composer['scripts']['dev']);
+
+    expect($dev)->toContain('queue:listen --queue=mail,default');
+});
