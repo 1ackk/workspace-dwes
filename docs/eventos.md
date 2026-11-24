@@ -16,6 +16,11 @@ correo.
 
 Total: 5 eventos, 5 listeners, 5 jobs (3 en cola: confirmada, cancelada y factura vencida) y 5 correos.
 
+**Ampliación A2 (Telegram), aparte del núcleo:** `BookingConfirmed` tiene un segundo listener,
+`SendBookingConfirmedTelegram`, que despacha `SendBookingConfirmedTelegramJob` (en cola `mail`) si el
+titular tiene Telegram activado. Con él hay 6 listeners y 6 jobs, pero el mínimo M7/M8 se cuenta con
+los 5 del núcleo. No añade ningún evento. Ver [telegram.md](telegram.md).
+
 Por qué cada uno va o no a la cola:
 
 - **Confirmada y cancelada (en cola).** Nacen de una petición web con un usuario esperando: un servidor

@@ -157,3 +157,29 @@ it('numbers the seeded invoices one after another, so generated ones continue th
         array_map(fn (int $n) => sprintf('FAC-%d-%06d', $year, $n), range(1, 6)),
     );
 });
+
+it('has users.telegram_chat_id (A2): nullable and unique', function () {
+    $column = collect(Schema::getColumns('users'))->firstWhere('name', 'telegram_chat_id');
+    $unique = collect(Schema::getIndexes('users'))->first(fn (array $index) => $index['columns'] === ['telegram_chat_id']);
+
+    expect($column)->not->toBeNull()
+        ->and($column['nullable'])->toBeTrue()
+        ->and($unique)->not->toBeNull()
+        ->and($unique['unique'])->toBeTrue();
+
+    User::factory()->create()->forceFill(['telegram_chat_id' => '100000001'])->save();
+    User::factory()->create()->forceFill(['telegram_chat_id' => '100000001'])->save();
+})->throws(QueryException::class);
+
+it('allows many users without Telegram', function () {
+    User::factory()->count(3)->create();
+
+    expect(User::query()->whereNull('telegram_chat_id')->count())->toBe(3);
+});
+
+it('seeds usuario1 as the only user with Telegram, with a fake chat id', function () {
+    $this->seed();
+
+    expect(User::query()->whereNotNull('telegram_chat_id')->pluck('telegram_chat_id', 'email')->all())
+        ->toBe(['usuario1@workspace.test' => '100000001']);
+});

@@ -36,6 +36,7 @@ disponibilidad y concurrencia, facturación e incidencias.
 - **Precio por tramos:** tarifa base y recargos de tarde y fin de semana, calculados en céntimos enteros y con la hora
   de Madrid.
 - **Pantalla de reserva con Livewire** (`/calendar`): rejilla de franjas, precio, reserva y pago simulado.
+- **Avisos por Telegram (A2)**, opcionales: canal simulado por defecto y bot real configurable.
 - **Siete scopes**, cuatro de ellos complejos: disponibilidad, reservas cancelables, facturas vencidas y ocupación por
   periodo.
 - **Cuatro comandos Artisan** programados con el *scheduler*; dos se lanzan también desde el panel de administración.
@@ -224,6 +225,7 @@ Los escenarios y cómo se consigue la simultaneidad están en [`docs/reservas.md
 | [`docs/eventos.md`](docs/eventos.md) | Eventos, listeners, jobs, colas y correos; cómo arrancar el worker |
 | [`docs/facturacion.md`](docs/facturacion.md) | Generar las facturas de un mes: reglas, número, vencimiento y atomicidad |
 | [`docs/livewire.md`](docs/livewire.md) | Componentes Livewire: la pantalla de reserva BookingCalendar |
+| [`docs/telegram.md`](docs/telegram.md) | A2: avisos por Telegram, canal simulado y cómo configurar un bot real |
 | [`docs/scopes.md`](docs/scopes.md) | Los siete scopes |
 | [`docs/comandos.md`](docs/comandos.md) | Los comandos Artisan y su programación |
 | [`docs/sprint-4.md`](docs/sprint-4.md) | Resumen del sprint 4 y guion de demostración |

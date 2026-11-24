@@ -28,6 +28,7 @@ erDiagram
         string email UK
         string password
         string locale
+        string telegram_chat_id UK "nulable, A2"
         timestamp deleted_at "SoftDeletes"
     }
     SPACES {
@@ -199,6 +200,8 @@ Todas se recorren en los tests (`DatabaseSchemaTest` y `RelationshipsTest`).
 - **Estados** como cadenas con enums PHP (`App\Enums`), no `ENUM` de base de datos, para
   que el esquema sea portable.
 - **Email de usuarios borrados**: `users.email` es único también entre borrados; si algún día se borran cuentas, se restaura el usuario en lugar de crear otro con el mismo email.
+- **Telegram (A2)**: `users.telegram_chat_id`, `string` nulo y único, en una migración nueva. No
+  está en `Fillable`: solo lo cambia la pantalla de notificaciones (ver [telegram.md](telegram.md)).
 - **Marcas de los recordatorios** (sprint 5, en dos migraciones nuevas, sin editar las anteriores):
   `bookings.reminder_sent_at` y `invoices.last_reminded_at`, `timestamp` nulos. Los comandos de
   recordatorio las ponen con un UPDATE condicional para no avisar dos veces (ver

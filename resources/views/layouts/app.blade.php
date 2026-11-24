@@ -28,6 +28,7 @@
                             <a href="{{ route('calendar') }}" class="hover:underline">{{ __('Reservar') }}</a>
                         @endcan
                         <a href="{{ route('my-bookings.index') }}" class="hover:underline">{{ __('Mis reservas') }}</a>
+                        <a href="{{ route('account.notifications.edit') }}" class="hover:underline">{{ __('Notificaciones') }}</a>
 
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf

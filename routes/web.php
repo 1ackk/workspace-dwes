@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\RoleName;
+use App\Http\Controllers\Account\NotificationSettingsController;
 use App\Http\Controllers\Accounting\InvoiceController as AccountingInvoiceController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Auth\LoginController;
@@ -36,6 +37,10 @@ Route::middleware('auth')->group(function () {
     // Reservas del usuario con sesión (solo lectura)
     Route::get('my-bookings', [MyBookingController::class, 'index'])->name('my-bookings.index');
     Route::get('my-bookings/{booking}', [MyBookingController::class, 'show'])->name('my-bookings.show');
+
+    // Mi cuenta → Notificaciones (A2): siempre sobre el usuario autenticado, sin id en la ruta
+    Route::get('account/notifications', [NotificationSettingsController::class, 'edit'])->name('account.notifications.edit');
+    Route::put('account/notifications', [NotificationSettingsController::class, 'update'])->name('account.notifications.update');
 
     // Reservar (Livewire): hace falta poder crear reservas (BookingPolicy::create, bookings.create)
     Route::livewire('calendar', BookingCalendar::class)

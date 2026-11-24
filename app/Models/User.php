@@ -24,6 +24,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string $locale
+ * @property string|null $telegram_chat_id A2. No está en Fillable: solo lo cambia la pantalla de notificaciones.
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at

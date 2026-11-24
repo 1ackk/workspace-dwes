@@ -40,6 +40,10 @@ class CoworkingSeeder extends Seeder
             'email' => "usuario{$n}@workspace.test",
         ])->assignRole(RoleName::Member));
 
+        // A2: usuario1 tiene Telegram activado con un identificador ficticio, para ver los avisos en
+        // el canal simulado (storage/logs/notifications.log). No está en Fillable: forceFill.
+        $members[0]->forceFill(['telegram_chat_id' => '100000001'])->save();
+
         $spaces = collect([
             ['name' => 'Planta Baja', 'location' => 'Calle Mayor 1, planta baja'],
             ['name' => 'Planta Alta', 'location' => 'Calle Mayor 1, planta alta'],

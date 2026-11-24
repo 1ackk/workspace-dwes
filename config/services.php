@@ -28,6 +28,17 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // A2: canal de notificación alternativo. "simulated" (por defecto) escribe en
+    // storage/logs/notifications.log; "telegram" usa la API de bots y necesita el token.
+    'notifications' => [
+        'channel' => env('NOTIFICATIONS_CHANNEL', 'simulated'),
+    ],
+
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'timeout' => (int) env('TELEGRAM_TIMEOUT', 5),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
